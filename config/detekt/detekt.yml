@@ -1,0 +1,18 @@
+# These configuration overrides come from https://detekt.dev/docs/introduction/compose/
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][A-Za-z0-9]*'
+complexity:
+  LongParameterList:
+    functionThreshold: 10 # default 6
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    ignoreAnnotatedFunctions: ['Preview']
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview']

@@ -10,12 +10,12 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import comcord.composeapp.generated.resources.Res
+import comcord.composeapp.generated.resources.compose_multiplatform
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-import comcord.composeapp.generated.resources.Res
-import comcord.composeapp.generated.resources.compose_multiplatform
-
+@Suppress("ktlint:compose:preview-public-check")
 @Composable
 @Preview
 fun App() {

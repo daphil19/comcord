@@ -1,8 +1,13 @@
 [versions]
-agp = "8.5.2"
-android-compileSdk = "34"
+# amper expects specific versions of these versions; check amper docs before migrating to make sure the right versions are set
+# currently, they are not, but future versions of amper might catch up
+agp = "8.7.0"
+compose-multiplatform = "1.7.0"
+kotlin = "2.1.0"
+
+android-compileSdk = "35"
 android-minSdk = "28"
-android-targetSdk = "34"
+android-targetSdk = "35"
 androidx-activityCompose = "1.9.3"
 androidx-appcompat = "1.7.0"
 androidx-constraintlayout = "2.2.0"
@@ -11,10 +16,11 @@ androidx-espresso-core = "3.6.1"
 androidx-lifecycle = "2.8.4"
 androidx-material = "1.12.0"
 androidx-test-junit = "1.2.1"
-compose-multiplatform = "1.7.0"
 junit = "4.13.2"
-kotlin = "2.1.0"
 kotlinx-coroutines = "1.9.0"
+jdk = "17"
+ktlint = "1.3.1"
+ktor = "3.0.3"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -31,6 +37,10 @@ androidx-lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", nam
 androidx-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 trixnity-messenger = { module = "de.connect2x:trixnity-messenger", version = "3.0.3" }
+ktlint-compose = "io.nlopez.compose.rules:ktlint:0.4.8"
+#ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+#ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 
 [bundles]
 
@@ -40,3 +50,6 @@ androidLibrary = { id = "com.android.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+gradle-versions = { id = "com.github.ben-manes.versions", version = "0.51.0" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "12.1.2" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.7" }
