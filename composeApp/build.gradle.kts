@@ -37,8 +37,14 @@ kotlin {
 
     jvm("desktop")
 
+//    js("web", IR) {
+//        browser {}
+//        binaries.executable()
+//    }
+
     sourceSets {
         val desktopMain by getting
+//        val webMain by getting
 
         androidMain.dependencies {
             implementation(compose.preview)
@@ -56,6 +62,7 @@ kotlin {
             implementation(libs.ktor.client.cio)
 
             implementation(libs.trixnity.messenger)
+            implementation(libs.decompose.extensions)
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
