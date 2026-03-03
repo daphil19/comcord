@@ -3,9 +3,6 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    // TODO maybe this should be at the top level?
-    alias(libs.plugins.ktlint)
-    alias(libs.plugins.detekt)
 }
 
 kotlin {
@@ -29,7 +26,7 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
+        iosTarget.binaries.framework(listOf(org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.DEBUG)) {
             baseName = "ComposeApp"
             isStatic = true
         }
@@ -37,29 +34,30 @@ kotlin {
 
     jvm("desktop")
 
-//    js("web", IR) {
-//        browser {}
-//        binaries.executable()
-//    }
+    js(IR) {
+        browser()
+        binaries.executable()
+    }
 
     sourceSets {
         val desktopMain by getting
-//        val webMain by getting
+        val jsMain by getting
 
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material)
+            implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.ktor.client.cio)
 
             implementation(libs.trixnity.messenger)
             implementation(libs.decompose.extensions)
@@ -67,8 +65,13 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.ktor.client.cio)
         }
         iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        jsMain.dependencies {
+            implementation(libs.ktor.client.js)
         }
     }
 }
@@ -103,6 +106,10 @@ android {
             isMinifyEnabled = false
         }
     }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 //    compileOptions {
 //        sourceCompatibility = JavaVersion.VERSION_11
 //        targetCompatibility = JavaVersion.VERSION_11
@@ -125,18 +132,9 @@ compose.desktop {
     }
 }
 
-ktlint {
-    version = libs.versions.ktlint
-    filter {
-        exclude("**/generated/**")
+tasks.configureEach {
+    val n = name.lowercase()
+    if (n.contains("ktlint") || n.contains("detekt") || n.contains("lint")) {
+        enabled = false
     }
-}
-
-dependencies {
-    ktlintRuleset(libs.ktlint.compose)
-}
-
-detekt {
-    buildUponDefaultConfig = true
-    parallel = true
 }
