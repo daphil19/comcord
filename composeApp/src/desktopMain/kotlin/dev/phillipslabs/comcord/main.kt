@@ -13,14 +13,14 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 
 fun main() {
-    val rootViewModel =
+    val matrixMessenger =
         runBlocking(Dispatchers.Main) {
             MatrixMultiMessenger
                 .create { comcordMatrixConfig() }
                 .singleModeMatrixMessenger()
                 .first()
-                .createRoot()
         }
+    val rootViewModel = matrixMessenger.createRoot()
 
     application {
         Window(
@@ -30,7 +30,7 @@ fun main() {
             //            CoroutineScope(Dispatchers.Default).launch {
 
             //                withContext(Dispatchers.Main) {
-            App(rootViewModel)
+            App(rootViewModel, matrixMessenger)
             //                }
             //            }
         }

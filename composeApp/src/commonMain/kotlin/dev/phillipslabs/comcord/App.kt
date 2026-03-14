@@ -1,6 +1,7 @@
 package dev.phillipslabs.comcord
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,10 +19,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,8 +41,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import de.connect2x.trixnity.messenger.MatrixClients
+import de.connect2x.trixnity.messenger.MatrixMessenger
 import de.connect2x.trixnity.messenger.viewmodel.RootRouter
 import de.connect2x.trixnity.messenger.viewmodel.RootViewModel
+import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMethod
+import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountState
+import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
+import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
+import kotlinx.coroutines.flow.StateFlow
 
 private val AppBg = Color(0xFF1A1D24)
 private val GuildRailBg = Color(0xFF12141A)
@@ -43,69 +60,210 @@ private val Accent = Color(0xFF4E69FF)
 private val TextStrong = Color(0xFFE6E8EE)
 private val TextMuted = Color(0xFFA7ACB7)
 
-private data class ChannelItem(
-    val id: String,
-    val name: String,
-    val unread: Int,
-)
-
-private data class MessageItem(
-    val author: String,
-    val text: String,
-    val time: String,
-)
-
-private val initialChannels =
-    listOf(
-        ChannelItem("general", "general", 3),
-        ChannelItem("announce", "announcements", 0),
-        ChannelItem("ios", "ios-builds", 1),
-        ChannelItem("android", "android-dev", 0),
-        ChannelItem("web", "web-client", 5),
-    )
-
-private val initialMessages =
-    listOf(
-        MessageItem("Alma", "Initial shell is up across targets.", "09:14"),
-        MessageItem("River", "Matrix core is running in single-account mode.", "09:16"),
-        MessageItem("Tess", "Next: auth and room sync.", "09:19"),
-    )
-
-@Suppress("ktlint:compose:preview-public-check")
 @Composable
-fun App(rootViewModel: RootViewModel) {
+fun App(
+    rootViewModel: RootViewModel,
+    matrixMessenger: MatrixMessenger,
+) {
     val stackState = rootViewModel.stack.subscribeAsState()
-    val currentRoute = stackState.value.active.instance
-    val matrixStatus = routeStatus(currentRoute)
+    val route = stackState.value.active.instance
 
     MaterialTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = AppBg,
         ) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val compact = maxWidth < 840.dp
-
-                Row(modifier = Modifier.fillMaxSize()) {
-                    GuildRail(compact = compact)
-                    if (!compact) {
-                        ChannelPanel(
-                            status = matrixStatus,
-                            channels = initialChannels,
-                        )
-                    }
-                    ChatPanel(
-                        selectedChannel = if (compact) "#general (mobile)" else "#general",
-                        messages = initialMessages,
-                    )
-                }
+            when (route) {
+                is RootRouter.Wrapper.AddMatrixAccount -> AddMatrixAccountScreen(route.viewModel)
+                is RootRouter.Wrapper.PasswordLogin -> PasswordLoginScreen(route.viewModel)
+                is RootRouter.Wrapper.Main -> MainShell(matrixMessenger)
+                else -> CenterStatus(routeStatus(route))
             }
         }
     }
 }
 
 @Composable
-private fun GuildRail(compact: Boolean) {
+private fun CenterStatus(status: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = status, color = TextStrong, fontSize = 18.sp)
+    }
+}
+
+@Composable
+private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
+    val serverField by viewModel.serverUrl.collectAsStateCompat()
+    val discoveryState by viewModel.serverDiscoveryState.collectAsStateCompat()
+
+    LaunchedEffect(serverField.text) {
+        if (serverField.text.isBlank()) {
+            viewModel.serverUrl.update("https://matrix.org")
+        }
+    }
+
+    val passwordMethod =
+        (discoveryState as? AddMatrixAccountViewModel.ServerDiscoveryState.Success)
+            ?.addMatrixAccountMethods
+            ?.filterIsInstance<AddMatrixAccountMethod.Password>()
+            ?.firstOrNull()
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Connect Matrix Account", color = TextStrong, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Choose a homeserver and continue with username/password login.",
+            color = TextMuted,
+        )
+
+        OutlinedTextField(
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+            modifier = Modifier.fillMaxWidth(),
+            value = serverField.text,
+            onValueChange = { viewModel.serverUrl.update(it) },
+            label = { Text("Homeserver URL") },
+            singleLine = true,
+        )
+
+        Text(
+            text =
+                when (discoveryState) {
+                    AddMatrixAccountViewModel.ServerDiscoveryState.Loading -> "Checking homeserver..."
+                    is AddMatrixAccountViewModel.ServerDiscoveryState.Failure ->
+                        (discoveryState as AddMatrixAccountViewModel.ServerDiscoveryState.Failure).message
+
+                    is AddMatrixAccountViewModel.ServerDiscoveryState.Success ->
+                        "Homeserver ready"
+
+                    AddMatrixAccountViewModel.ServerDiscoveryState.None -> "Enter a homeserver"
+                },
+            color = TextMuted,
+        )
+
+        Button(
+            enabled = passwordMethod != null,
+            onClick = {
+                val method = passwordMethod ?: return@Button
+                viewModel.selectAddMatrixAccountMethod(method)
+            },
+        ) {
+            Text("Continue with Password")
+        }
+    }
+}
+
+@Composable
+private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
+    val usernameField by viewModel.username.collectAsStateCompat()
+    val passwordField by viewModel.password.collectAsStateCompat()
+    val canLogin by viewModel.canLogin.collectAsStateCompat()
+    val loginState by viewModel.addMatrixAccountState.collectAsStateCompat()
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Password Login", color = TextStrong, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        Text(viewModel.serverUrl, color = TextMuted)
+
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = usernameField.text,
+            onValueChange = { viewModel.username.update(it) },
+            label = { Text("Username") },
+            singleLine = true,
+        )
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = passwordField.text,
+            onValueChange = { viewModel.password.update(it) },
+            label = { Text("Password") },
+            singleLine = true,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = viewModel::back) { Text("Back") }
+            Button(enabled = canLogin, onClick = viewModel::tryLogin) { Text("Log In") }
+        }
+
+        Text(
+            text =
+                when (loginState) {
+                    AddMatrixAccountState.None -> ""
+                    AddMatrixAccountState.Connecting -> "Connecting..."
+                    AddMatrixAccountState.Success -> "Connected"
+                    is AddMatrixAccountState.Failure -> (loginState as AddMatrixAccountState.Failure).message
+                },
+            color = TextMuted,
+        )
+    }
+}
+
+@Composable
+private fun MainShell(matrixMessenger: MatrixMessenger) {
+    val matrixClients = remember(matrixMessenger) { matrixMessenger.di.get<MatrixClients>() }
+    val clients by matrixClients.collectAsStateCompat()
+    val matrixClient = clients.values.firstOrNull()
+
+    if (matrixClient == null) {
+        CenterStatus("No active account")
+        return
+    }
+
+    val roomDirectory by observeRoomDirectory(matrixClient).collectAsStateCompat(
+        RoomDirectoryState(
+            guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
+            roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to emptyList()),
+            syncStateLabel = "Starting sync",
+        )
+    )
+
+    var selectedGuildId by remember { mutableStateOf(ALL_ROOMS_GUILD_ID) }
+    var selectedRoomName by remember { mutableStateOf<String?>(null) }
+
+    if (roomDirectory.guilds.none { it.id == selectedGuildId }) {
+        selectedGuildId = ALL_ROOMS_GUILD_ID
+    }
+    val roomsForGuild = roomDirectory.roomsByGuild[selectedGuildId].orEmpty()
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val compact = maxWidth < 900.dp
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            GuildRail(
+                compact = compact,
+                guilds = roomDirectory.guilds,
+                selectedGuildId = selectedGuildId,
+                onSelectGuild = { selectedGuildId = it },
+            )
+            if (!compact) {
+                ChannelPanel(
+                    status = roomDirectory.syncStateLabel,
+                    channels = roomsForGuild,
+                    selectedRoomName = selectedRoomName,
+                    onSelectRoom = { selectedRoomName = it.name },
+                )
+            }
+            ChatPanel(
+                selectedChannel = selectedRoomName ?: "Select a room",
+                roomsCount = roomsForGuild.size,
+                syncStateLabel = roomDirectory.syncStateLabel,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuildRail(
+    compact: Boolean,
+    guilds: List<GuildUi>,
+    selectedGuildId: String,
+    onSelectGuild: (String) -> Unit,
+) {
     Column(
         modifier =
             Modifier
@@ -116,11 +274,14 @@ private fun GuildRail(compact: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        GuildDot(label = "C", active = true)
-        GuildDot(label = "M", active = false)
-        GuildDot(label = "D", active = false)
-        Spacer(modifier = Modifier.weight(1f))
-        GuildDot(label = "+", active = false)
+        guilds.forEach { guild ->
+            val label = guild.name.take(2).uppercase()
+            GuildDot(
+                label = label,
+                active = guild.id == selectedGuildId,
+                onClick = { onSelectGuild(guild.id) },
+            )
+        }
     }
 }
 
@@ -128,51 +289,41 @@ private fun GuildRail(compact: Boolean) {
 private fun GuildDot(
     label: String,
     active: Boolean,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier =
             Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(if (active) 16.dp else 24.dp))
-                .background(if (active) Accent else Color(0xFF2A2D36)),
+                .background(if (active) Accent else Color(0xFF2A2D36))
+                .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            color = TextStrong,
-            fontWeight = FontWeight.Bold,
-        )
+        Text(text = label, color = TextStrong, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun ChannelPanel(
     status: String,
-    channels: List<ChannelItem>,
+    channels: List<RoomUi>,
+    selectedRoomName: String?,
+    onSelectRoom: (RoomUi) -> Unit,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxHeight()
-                .width(272.dp)
+                .width(280.dp)
                 .background(ChannelPanelBg)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Text(
-            text = "Comcord",
-            color = TextStrong,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Text("Comcord", color = TextStrong, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
         StatusBadge(status)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "TEXT CHANNELS",
-            color = TextMuted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Text("ROOMS", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
 
         LazyColumn(
@@ -182,7 +333,11 @@ private fun ChannelPanel(
         ) {
             items(channels.size) { index ->
                 val channel = channels[index]
-                ChannelRow(channel)
+                ChannelRow(
+                    roomName = channel.name,
+                    selected = selectedRoomName == channel.name,
+                    onClick = { onSelectRoom(channel) },
+                )
             }
         }
     }
@@ -207,58 +362,42 @@ private fun StatusBadge(status: String) {
                     .background(Accent),
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = status,
-            color = TextStrong,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Text(text = status, color = TextStrong, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
-private fun ChannelRow(channel: ChannelItem) {
+private fun ChannelRow(
+    roomName: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF2A2E37))
+                .background(if (selected) Color(0xFF343A47) else Color(0xFF2A2E37))
+                .clickable(onClick = onClick)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "#${channel.name}",
+            text = "#$roomName",
             color = TextStrong,
             fontSize = 13.sp,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (channel.unread > 0) {
-            Box(
-                modifier =
-                    Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Accent)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-            ) {
-                Text(
-                    text = channel.unread.toString(),
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
     }
 }
 
 @Composable
 private fun ChatPanel(
     selectedChannel: String,
-    messages: List<MessageItem>,
+    roomsCount: Int,
+    syncStateLabel: String,
 ) {
     Column(
         modifier =
@@ -267,25 +406,12 @@ private fun ChatPanel(
                 .background(ChatPanelBg)
                 .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
-        Text(
-            text = selectedChannel,
-            color = TextStrong,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Text(text = selectedChannel, color = TextStrong, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(14.dp))
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 8.dp),
-        ) {
-            items(messages.size) { index ->
-                val message = messages[index]
-                MessageRow(message)
-            }
-        }
-
+        Text("Synced rooms in view: $roomsCount", color = TextMuted)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("State: $syncStateLabel", color = TextMuted)
+        Spacer(modifier = Modifier.weight(1f))
         Box(
             modifier =
                 Modifier
@@ -294,48 +420,17 @@ private fun ChatPanel(
                     .background(ComposerBg)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = "Message #general",
-                color = TextMuted,
-            )
+            Text(text = "Timeline view next", color = TextMuted)
         }
     }
 }
 
 @Composable
-private fun MessageRow(message: MessageItem) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Box(
-            modifier =
-                Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF3A4150)),
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = message.author,
-                    color = TextStrong,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                )
-                Text(
-                    text = message.time,
-                    color = TextMuted,
-                    fontSize = 12.sp,
-                )
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = message.text,
-                color = TextStrong,
-                fontSize = 13.sp,
-            )
-        }
-    }
-}
+private fun <T> StateFlow<T>.collectAsStateCompat() = collectAsState()
+
+@Composable
+private fun <T> kotlinx.coroutines.flow.Flow<T>.collectAsStateCompat(initial: T) =
+    collectAsState(initial = initial)
 
 private fun routeStatus(route: RootRouter.Wrapper): String =
     when (route) {

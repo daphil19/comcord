@@ -8,7 +8,6 @@ val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
     appName = "Comcord"
     appId = "dev.phillipslabs.comcord"
     httpClientEngine = httpEngine
-//        defaultHomeServer = "https://matrix.org"
 }
 
 expect val httpEngine: HttpClientEngine

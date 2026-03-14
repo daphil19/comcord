@@ -1,7 +1,7 @@
 [versions]
 # amper expects specific versions of these versions; check amper docs before migrating to make sure the right versions are set
 # currently, they are not, but future versions of amper might catch up
-agp = "8.9.1"
+agp = "8.12.0"
 compose-multiplatform = "1.10.1"
 kotlin = "2.3.10"
 

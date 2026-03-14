@@ -1,0 +1,22 @@
+services:
+  synapse:
+    image: ghcr.io/element-hq/synapse:v1.149.1
+    container_name: comcord-matrix-mock
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./data:/data
+      - ./homeserver.yaml:/data/homeserver.yaml:ro
+      - ./log.config:/config/log.config:ro
+
+  seed-users:
+    image: ghcr.io/element-hq/synapse:v1.149.1
+    depends_on:
+      - synapse
+    restart: "no"
+    volumes:
+      - ./data:/data
+      - ./seed-users.sh:/seed/seed-users.sh:ro
+      - ./users.csv:/seed/users.csv:ro
+    entrypoint: ["/bin/sh", "/seed/seed-users.sh"]

@@ -1,21 +1,74 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop.
+# Comcord
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - `commonMain` is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    `iosMain` would be the right folder for such calls.
+Comcord is an early-stage Matrix client built with Kotlin Multiplatform and Compose Multiplatform.
 
-* `/iosApp` contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform, 
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+## Project vision
 
+Build a single Matrix client codebase that ships to:
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+- Android
+- iOS
+- Desktop (JVM)
+- Web (JS/IR)
 
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [GitHub](https://github.com/JetBrains/compose-multiplatform/issues).
+The goal is to keep as much business logic and UI shared as practical while still allowing platform-specific integrations where needed.
 
-You can open the web application by running the `:composeApp:wasmJsBrowserDevelopmentRun` Gradle task.
+## Current aims
+
+The current phase is focused on a functional login/sync/rooms vertical slice:
+
+- A shared Matrix backbone based on `trixnity-messenger`
+- Basic auth flow (homeserver + username/password)
+- Initial sync and room directory loading
+- Guild-level grouping based on Matrix spaces (`m.space`) with an always-present `All Rooms` pseudo-guild
+- Timeline rendering deferred until after room-directory flow is stable
+
+## Project structure
+
+- `composeApp/`
+    - `src/commonMain/`: shared UI, app flow, and cross-platform logic
+    - `src/androidMain/`, `src/iosMain/`, `src/desktopMain/`, `src/jsMain/`: platform-specific integrations
+- `iosApp/`: iOS app entry point/wrapper for running the shared Compose application on Apple platforms
+
+## Build notes
+
+- Web target currently uses JS/IR (not Wasm)
+- Homeserver can be customized at login, with `https://matrix.org` prefilled as the default
+- During skeleton development, code quality gates (lint/ktlint/detekt) are intentionally disabled and will be re-enabled later
+
+## Local mocked Matrix server
+
+For stable local development against a known Matrix homeserver, this repo includes a dockerized Synapse setup backed by SQLite.
+
+- Stack location: `docker/matrix-mock/`
+- Client homeserver URL: `http://localhost:8008`
+- Seeded users (username/password):
+    - `alice` / `alicepass` (admin)
+    - `bob` / `bobpass`
+    - `carol` / `carolpass`
+    - `dave` / `davepass`
+- Matrix IDs: `@alice:localhost`, `@bob:localhost`, `@carol:localhost`, `@dave:localhost`
+
+Start it:
+
+- `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
+
+Stop it:
+
+- `docker compose -f docker/matrix-mock/docker-compose.yml down`
+
+Re-run user seeding against an existing server:
+
+- `docker compose -f docker/matrix-mock/docker-compose.yml run --rm seed-users`
+
+Reset to a clean state (removes DB + media + users):
+
+- `rm -rf docker/matrix-mock/data`
+
+## Useful commands
+
+- Build Android debug app: `./gradlew :composeApp:assembleDebug`
+- Build Desktop jar: `./gradlew :composeApp:desktopJar`
+- Compile Web target: `./gradlew :composeApp:compileKotlinJs`
+- Build iOS simulator debug framework: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
+- Run tests: `./gradlew :composeApp:allTests`

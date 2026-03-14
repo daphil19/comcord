@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalComposeUiApi::class)
 suspend fun main() {
-    val rootViewModel =
+    val matrixMessenger =
         MatrixMultiMessenger
             .create { comcordMatrixConfig() }
             .singleModeMatrixMessenger()
             .first()
-            .createRoot()
+    val rootViewModel = matrixMessenger.createRoot()
 
     ComposeViewport(document.body!!) {
-        App(rootViewModel)
+        App(rootViewModel, matrixMessenger)
     }
 }

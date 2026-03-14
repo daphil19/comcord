@@ -19,17 +19,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         CoroutineScope(Dispatchers.Default).launch {
-            val rootViewModel =
+            val matrixMessenger =
                 MatrixMultiMessenger
                     .create(applicationContext) {
                         comcordMatrixConfig()
                     }.singleModeMatrixMessenger()
                     .first()
-                    .createRoot()
+            val rootViewModel = matrixMessenger.createRoot()
 
             withContext(Dispatchers.Main) {
                 setContent {
-                    App(rootViewModel)
+                    App(rootViewModel, matrixMessenger)
                 }
             }
         }

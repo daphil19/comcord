@@ -1,0 +1,5 @@
+# username:password:role
+alice:alicepass:admin
+bob:bobpass:user
+carol:carolpass:user
+dave:davepass:user

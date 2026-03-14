@@ -11,17 +11,17 @@ import platform.UIKit.UIViewController
 
 @Suppress("ktlint:standard:function-naming")
 fun MainViewController(): UIViewController {
-    val rootViewModel =
+    val matrixMessenger =
         runBlocking {
             MatrixMultiMessenger
                 .create {
                     comcordMatrixConfig()
                 }.singleModeMatrixMessenger()
                 .first()
-                .createRoot()
         }
+    val rootViewModel = matrixMessenger.createRoot()
 
     return ComposeUIViewController {
-        App(rootViewModel)
+        App(rootViewModel, matrixMessenger)
     }
 }
