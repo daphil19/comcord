@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.gradle.versions)
+    alias(libs.plugins.compose.hot.reload) apply false
 }
 
 // checks to see if a release is "stable," meaning we don't have to worry about rc versions polluting a dependencyUpdates check

@@ -2,12 +2,11 @@ package dev.phillipslabs.comcord
 
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessengerConfiguration
 import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.cio.*
 
 // TODO this is better than a function right?
 val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
     appName = "Comcord"
     appId = "dev.phillipslabs.comcord"
-    httpClientEngine = httpEngine
+    httpClientEngine = CIO.create()
 }
-
-expect val httpEngine: HttpClientEngine
