@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -6,6 +8,7 @@ plugins {
     alias(libs.plugins.compose.hot.reload)
 }
 
+@OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 kotlin {
     // toolchains are better than setting source/target compatibilities
     jvmToolchain(
@@ -33,16 +36,21 @@ kotlin {
         }
     }
 
-    jvm("desktop")
+    js {
+        browser()
+        binaries.executable()
+    }
 
-//    js(IR) {
-//        browser()
-//        binaries.executable()
-//    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
+
+    jvm("desktop")
 
     sourceSets {
         val desktopMain by getting
-//        val jsMain by getting
 
         androidMain.dependencies {
             implementation(compose.preview)

@@ -25,7 +25,15 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        // trixnity-messenger prod
         maven("https://gitlab.com/api/v4/projects/47538655/packages/maven")
+        // trixnity-messenger dev builds
+        maven("https://gitlab.com/api/v4/projects/26519650/packages/maven")
+    }
+    versionCatalogs {
+        create("ktor") {
+            from("io.ktor:ktor-version-catalog:3.4.1")
+        }
     }
 }
 
