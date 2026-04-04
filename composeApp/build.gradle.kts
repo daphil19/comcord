@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -11,6 +9,7 @@ plugins {
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 kotlin {
     // toolchains are better than setting source/target compatibilities
+    jvm()
     jvmToolchain(
         libs.versions.jdk
             .get()
@@ -18,7 +17,6 @@ kotlin {
     )
 
     androidTarget {
-//        @OptIn(ExperimentalKotlinGradlePluginApi::class)
 //        compilerOptions {
 //            jvmTarget.set(JvmTarget.JVM_11)
 //        }
@@ -30,7 +28,8 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { iosTarget ->
-        iosTarget.binaries.framework(listOf(org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType.DEBUG)) {
+        // TODO build types?
+        iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
         }
@@ -39,23 +38,16 @@ kotlin {
     js {
         browser()
         binaries.executable()
+        useEsModules()
     }
 
-    @OptIn(ExperimentalWasmDsl::class)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser()
         binaries.executable()
     }
 
-    jvm("desktop")
-
     sourceSets {
-        val desktopMain by getting
-
-        androidMain.dependencies {
-            implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
-        }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -66,14 +58,22 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.ktor.client.cio)
 
             implementation(libs.trixnity.messenger)
             implementation(libs.decompose.extensions)
         }
-        desktopMain.dependencies {
+        androidMain.dependencies {
+            implementation(compose.preview)
+            implementation(libs.androidx.activity.compose)
+        }
+        jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+        }
+        webMain.dependencies {
+//            implementation(npm("copy-webpack-plugin", libs.versions.copyWebpackPlugin.get()))
+            implementation(project.dependencies.platform(libs.kotlin.wrappers.bom))
+            implementation(libs.kotlin.browser)
         }
     }
 }
@@ -120,6 +120,7 @@ android {
 
 dependencies {
     debugImplementation(compose.uiTooling)
+//    ktlintRuleset(libs.ktlint.compose)
 }
 
 compose.desktop {
@@ -131,12 +132,5 @@ compose.desktop {
 //            packageName = "dev.phillipslabs.comcord"
 //            packageVersion = "1.0.0"
 //        }
-    }
-}
-
-tasks.configureEach {
-    val n = name.lowercase()
-    if (n.contains("ktlint") || n.contains("detekt") || n.contains("lint")) {
-        enabled = false
     }
 }

@@ -22,6 +22,7 @@ fun main() {
         }
     val rootViewModel = matrixMessenger.createRoot()
 
+    // TODO we need to fix getting this on the main thread eventually! (all in runBlocking?)
     application {
         Window(
             onCloseRequest = ::exitApplication,

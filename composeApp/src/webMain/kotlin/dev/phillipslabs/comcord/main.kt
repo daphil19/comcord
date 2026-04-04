@@ -1,6 +1,5 @@
 package dev.phillipslabs.comcord
 
-import androidx.compose.material.Text
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import de.connect2x.trixnity.messenger.createRoot
@@ -10,18 +9,15 @@ import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalComposeUiApi::class)
- fun main() {
+suspend fun main() {
+    val matrixMessenger =
+        MatrixMultiMessenger
+            .create { comcordMatrixConfig() }
+            .singleModeMatrixMessenger()
+            .first()
+    val rootViewModel = matrixMessenger.createRoot()
+
     ComposeViewport {
-        Text("Hello, World!")
+        App(rootViewModel, matrixMessenger)
     }
-//    val matrixMessenger =
-//        MatrixMultiMessenger
-//            .create { comcordMatrixConfig() }
-//            .singleModeMatrixMessenger()
-//            .first()
-//    val rootViewModel = matrixMessenger.createRoot()
-//
-//    ComposeViewport {
-//        App(rootViewModel, matrixMessenger)
-//    }
 }

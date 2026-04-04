@@ -1,19 +1,72 @@
-// config.resolve = config.resolve || {};
-// config.resolve.fallback = {
-//   ...(config.resolve.fallback || {}),
-//   crypto: false,
-//   fs: false,
-//   path: false,
-// };
-//
-// config.experiments = {
-//   ...(config.experiments || {}),
-//   asyncWebAssembly: true,
-// };
-//
-// config.module = config.module || {};
-// config.module.rules = config.module.rules || [];
-// config.module.rules.push({
-//   test: /\.wasm$/,
-//   type: "webassembly/async",
-// });
+/*
+ * This webpack config is used to help correctly bundle various matrix-specific dependencies (like olm)
+ * This was adapted from the `resources` script from the trixnity-messenger example
+ */
+
+config.resolve.fallback = {
+    crypto: false,
+    fs: false,
+    path: false,
+    stream: false,
+    buffer: false,
+    os: false,
+    url: false,
+};
+
+config.module.rules =
+    [
+        ...(config.module?.rules || []),
+        {test: /\.wasm$/, type: "asset/resource"},
+    ]
+
+// Minification
+if (config.mode === "production") {
+    const TerserPlugin = require("terser-webpack-plugin");
+    config.optimization = {
+        minimize: true,
+        minimizer: [
+            new TerserPlugin({
+                extractComments: true,
+                terserOptions: {
+                    compress: {
+                        collapse_vars: false, // > 5 min
+                        reduce_vars: false, // 30 secs
+                    },
+                    mangle: true,
+                },
+            }),
+        ],
+    };
+} else {
+    config.optimization = {
+        minimize: false,
+        minimizer: [],
+    };
+}
+
+// Copy dependencies
+// const CopyPlugin = require("copy-webpack-plugin");
+// config.plugins.push(
+//     new CopyPlugin({
+//         patterns: [
+//             // Required by the pdfjs runtime.
+//             {from: "../../node_modules/pdfjs-dist/build/pdf.worker.mjs", to: "."},
+//         ],
+//     })
+// )
+
+// Dev Server
+if (config.devServer) {
+    config.devServer.historyApiFallback = {
+        disableDotRule: true,
+        rewrites: [
+            {from: /\/sso\.html(\/.*)/, to: ({request, parsedUrl, match}) => match[1]},
+            {from: /\/sso\.html/, to: '/index.html'},
+        ],
+    }
+    config.devServer.headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*"
+    }
+}

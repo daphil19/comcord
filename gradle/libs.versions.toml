@@ -21,6 +21,8 @@ jdk = "21"
 ktlint = "1.3.1"
 ktor = "3.4.1"
 decompose = "3.2.2" # https://github.com/arkivanov/Decompose/releases
+copyWebpackPlugin = "13.0.1" # https://github.com/webpack-contrib/copy-webpack-plugin/releases
+kotlinWrappers = "2026.3.10"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -36,7 +38,7 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.3.1" }
+trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.4.0" }
 ktlint-compose = "io.nlopez.compose.rules:ktlint:0.4.8"
 #ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 #ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
@@ -46,6 +48,8 @@ ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "kto
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 decompose = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 decompose-extensions = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose" }
+kotlin-wrappers-bom = {group = "org.jetbrains.kotlin-wrappers", name = "kotlin-wrappers-bom", version.ref = "kotlinWrappers" }
+kotlin-browser = {group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlinWrappers" }
 
 [bundles]
 
