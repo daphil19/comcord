@@ -7,55 +7,82 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
   contents: read
+
+env:
+  JAVA_VERSION: '17'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   verify-linux:
     name: Verify Linux
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify Android, JVM, JS, Wasm, and tests
+      - name: Verify Android, JVM, and unit tests
         run: |
           ./gradlew \
             :composeApp:assembleDebug \
             :composeApp:compileKotlinJvm \
             :composeApp:compileKotlinJs \
             :composeApp:compileKotlinWasmJs \
-            :composeApp:allTests
+            :composeApp:jvmTest \
+            :composeApp:testDebugUnitTest \
+            :composeApp:testReleaseUnitTest
+
+      - name: Verify JS and Wasm browser tests
+        run: |
+          xvfb-run ./gradlew \
+            :composeApp:jsBrowserTest \
+            :composeApp:wasmJsBrowserTest
 
   verify-macos:
     name: Verify macOS
     runs-on: macos-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify iOS simulator build
-        run: ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+      - name: Verify iOS simulator build and tests
+        run: |
+          ./gradlew \
+            :composeApp:linkDebugFrameworkIosSimulatorArm64 \
+            :composeApp:iosSimulatorArm64Test
 
   release-android:
     name: Release Android
@@ -64,16 +91,17 @@ jobs:
       - verify-linux
       - verify-macos
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -97,6 +125,7 @@ jobs:
       - verify-linux
       - verify-macos
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -109,11 +138,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -150,16 +179,17 @@ jobs:
       - verify-linux
       - verify-macos
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -183,16 +213,17 @@ jobs:
       - verify-linux
       - verify-macos
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -219,16 +250,17 @@ jobs:
       - verify-linux
       - verify-macos
     runs-on: macos-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -259,6 +291,7 @@ jobs:
       - release-web
       - release-ios-framework
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 
@@ -269,18 +302,21 @@ jobs:
           path: release-assets
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            release-assets/**/*.apk
-            release-assets/**/*.aab
-            release-assets/**/*.jar
-            release-assets/**/*.zip
-            release-assets/**/*.tar.gz
-            release-assets/**/*.dmg
-            release-assets/**/*.msi
-            release-assets/**/*.deb
-            release-assets/**/*.rpm
-            release-assets/**/*.exe
-            release-assets/**/*.pkg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --generate-notes
+          fi
+          mapfile -t release_files < <(find release-assets -type f \( \
+            -name '*.apk' -o \
+            -name '*.aab' -o \
+            -name '*.jar' -o \
+            -name '*.zip' -o \
+            -name '*.tar.gz' \
+          \))
+          if [ "${#release_files[@]}" -eq 0 ]; then
+            echo "No release artifacts found"
+            exit 1
+          fi
+          gh release upload "${GITHUB_REF_NAME}" "${release_files[@]}" --clobber
