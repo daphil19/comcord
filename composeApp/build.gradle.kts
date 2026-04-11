@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -128,10 +129,14 @@ compose.desktop {
     application {
         mainClass = "dev.phillipslabs.comcord.MainKt"
 
-//        nativeDistributions {
-//            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-//            packageName = "dev.phillipslabs.comcord"
-//            packageVersion = "1.0.0"
-//        }
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
+
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "Comcord"
+            packageVersion = "1.0.0"
+        }
     }
 }
