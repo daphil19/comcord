@@ -31,6 +31,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountStat
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 private val AppBg = Color(0xFF1A1D24)
 private val GuildRailBg = Color(0xFF12141A)
@@ -207,9 +209,12 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 private fun MainShell(matrixMessenger: MatrixMessenger) {
     val matrixClients = remember(matrixMessenger) { matrixMessenger.di.get<MatrixClients>() }
     val clients by matrixClients.collectAsStateCompat()
-    val matrixClient = clients.values.firstOrNull()
+    val entry = clients.entries.firstOrNull()
+    val matrixClient = entry?.value
+    val userId = entry?.key
+    val scope = rememberCoroutineScope()
 
-    if (matrixClient == null) {
+    if (matrixClient == null || userId == null) {
         CenterStatus("No active account")
         return
     }
@@ -239,6 +244,11 @@ private fun MainShell(matrixMessenger: MatrixMessenger) {
                 guilds = roomDirectory.guilds,
                 selectedGuildId = selectedGuildId,
                 onSelectGuild = { selectedGuildId = it },
+                onLogout = {
+                    scope.launch {
+                        matrixClients.logout(userId)
+                    }
+                },
             )
             if (!compact) {
                 ChannelPanel(
@@ -263,6 +273,7 @@ private fun GuildRail(
     guilds: List<GuildUi>,
     selectedGuildId: String,
     onSelectGuild: (String) -> Unit,
+    onLogout: () -> Unit,
 ) {
     Column(
         modifier =
@@ -282,6 +293,12 @@ private fun GuildRail(
                 onClick = { onSelectGuild(guild.id) },
             )
         }
+        Spacer(Modifier.weight(1f))
+        GuildDot(
+            label = "LO",
+            active = false,
+            onClick = onLogout,
+        )
     }
 }
 
