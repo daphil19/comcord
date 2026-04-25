@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "android-gradle-logic": {
+      "source": "new-silvermoon/awesome-android-agent-skills",
+      "sourceType": "github",
+      "computedHash": "d761417a93265336db08be791bf7f4c63b1b8b78db46cbb0111c2224c2034b1e"
+    },
+    "compose-expert": {
+      "source": "aldefy/compose-skill",
+      "sourceType": "github",
+      "computedHash": "e2118ea5513081a94c8561fb836217857e5783c3155b8c7e8389744cf5b211f3"
+    },
+    "compose-multiplatform-patterns": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "bb1c2a3397b144a0a5ac4f6c4bcb44514ec52a7020becd794eeceb62eee69b0d"
+    }
+  }
+}
