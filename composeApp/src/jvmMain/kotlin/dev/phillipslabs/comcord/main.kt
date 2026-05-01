@@ -4,36 +4,40 @@ package dev.phillipslabs.comcord
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import de.connect2x.trixnity.messenger.create
-import de.connect2x.trixnity.messenger.createRoot
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
 import de.connect2x.trixnity.messenger.multi.create
 import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
+import dev.phillipslabs.comcord.bootstrap.createComcordAppBootstrap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 
 fun main() {
-    val matrixMessenger =
-        runBlocking(Dispatchers.Main) {
-            MatrixMultiMessenger
-                .create { comcordMatrixConfig() }
-                .singleModeMatrixMessenger()
-                .first()
-        }
-    val rootViewModel = matrixMessenger.createRoot()
+    configureComcordLogging()
+    val logger = comcordLogger("jvm.main")
+    logger.info { "Starting Comcord JVM target" }
 
-    // TODO we need to fix getting this on the main thread eventually! (all in runBlocking?)
+    val rootComponent =
+        runBlocking(Dispatchers.Main) {
+            createComcordAppBootstrap {
+                MatrixMultiMessenger
+                    .create {
+                        applyComcordMatrixConfig(
+                            ComcordMatrixSettings(
+                                httpClientEngine = createJvmComcordHttpEngine(),
+                            ),
+                        )
+                    }
+                    .singleModeMatrixMessenger()
+                    .first()
+            }
+        }
+
     application {
         Window(
             onCloseRequest = ::exitApplication,
             title = "Comcord",
         ) {
-            //            CoroutineScope(Dispatchers.Default).launch {
-
-            //                withContext(Dispatchers.Main) {
-            App(rootViewModel, matrixMessenger)
-            //                }
-            //            }
+            App(rootComponent)
         }
     }
 }

@@ -1,5 +1,8 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.testing.Test
+import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
+import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -62,7 +65,12 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime.compose)
 
             implementation(libs.trixnity.messenger)
+            implementation(libs.lognity.core)
             implementation(libs.decompose.extensions)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling.preview)
@@ -71,6 +79,10 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.ktor.client.okhttp)
+        }
+        jvmTest.dependencies {
+            implementation(libs.testcontainers)
         }
         webMain.dependencies {
 //            implementation(npm("copy-webpack-plugin", libs.versions.copyWebpackPlugin.get()))
@@ -123,6 +135,39 @@ android {
 dependencies {
     debugImplementation(libs.compose.ui.tooling)
 //    ktlintRuleset(libs.ktlint.compose)
+}
+
+// TODO we _probably_ need to update this to wokr correctly...
+tasks.withType<Test>().configureEach {
+    testLogging {
+        showStandardStreams = true
+    }
+    val os = OperatingSystem.current()
+    val explicitDockerHost = System.getenv("DOCKER_HOST")
+    val detectedSocket =
+        listOf(
+            file("${System.getProperty("user.home")}/.docker/run/docker.sock"),
+            file("/var/run/docker.sock"),
+        ).firstOrNull { it.exists() }
+
+    val resolvedDockerHost =
+        explicitDockerHost ?: detectedSocket?.let { socket ->
+            "unix://${socket.absolutePath}"
+        }
+
+    if (resolvedDockerHost != null) {
+        environment("DOCKER_HOST", resolvedDockerHost)
+        // Ryuk and similar helper containers expect the Docker socket at the in-container default path.
+        environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")
+        if (os.isMacOsX) {
+            environment("TESTCONTAINERS_HOST_OVERRIDE", "localhost")
+        }
+        systemProperty(
+            "docker.client.strategy",
+            "org.testcontainers.dockerclient.EnvironmentAndSystemPropertyClientProviderStrategy",
+        )
+        systemProperty("docker.host", resolvedDockerHost)
+    }
 }
 
 compose.desktop {

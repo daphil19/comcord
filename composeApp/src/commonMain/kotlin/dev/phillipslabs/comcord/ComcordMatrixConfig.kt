@@ -6,19 +6,32 @@ import de.connect2x.trixnity.messenger.i18n.Languages
 import de.connect2x.trixnity.messenger.i18n.platformGetSystemLangModule
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessengerConfiguration
 import de.connect2x.trixnity.messenger.platformMatrixMessengerSettingsHolderModule
+import io.ktor.client.engine.HttpClientEngine
 import kotlinx.datetime.TimeZone
 import org.koin.dsl.module
 
-// TODO this is better than a function right?
-// TODO we should probably make a function...
-val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
-    appName = "Comcord"
-    appId = "dev.phillipslabs.comcord"
-    // TODO client engine eventually
-//    httpClientEngine = CIO.create()
+private val matrixConfigLogger = comcordLogger("matrix.config")
 
-    // TODO this is modeled after the trxinity-messenger example
-    // TODO having to set these ourselves is kinda annoying...
+data class ComcordCapabilityFlags(
+    val media: Boolean = false,
+    val notifications: Boolean = false,
+    val encryptionUx: Boolean = false,
+)
+
+data class ComcordMatrixSettings(
+    val appName: String = "Comcord",
+    val appId: String = "dev.phillipslabs.comcord",
+    val capabilityFlags: ComcordCapabilityFlags = ComcordCapabilityFlags(),
+    val httpClientEngine: HttpClientEngine? = null,
+)
+
+fun MatrixMultiMessengerConfiguration.applyComcordMatrixConfig(settings: ComcordMatrixSettings = ComcordMatrixSettings()) {
+    configureComcordLogging()
+
+    appName = settings.appName
+    appId = settings.appId
+    httpClientEngine = settings.httpClientEngine
+
     modulesFactories +=
         listOf(
             ::platformMatrixMessengerSettingsHolderModule,
@@ -27,7 +40,15 @@ val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
                 module {
                     single<Languages> { DefaultLanguages }
                     single<I18n> { object : I18n(get(), get(), get(), get<TimeZone>()) {} }
+                    single { settings }
+                    single { settings.capabilityFlags }
                 }
             },
         )
+
+    matrixConfigLogger.info { "Configured Matrix bootstrap for ${settings.appName}" }
+}
+
+val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
+    applyComcordMatrixConfig()
 }

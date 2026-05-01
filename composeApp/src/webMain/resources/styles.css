@@ -1,7 +1,30 @@
+:root {
+    color-scheme: dark;
+    --comcord-bg: #171a20;
+    --comcord-panel: #1e232c;
+    --comcord-panel-alt: #252b35;
+    --comcord-text: #e8ecf3;
+    --comcord-muted: #9ea6b5;
+    --comcord-accent: #5c7cfa;
+    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
 html, body {
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
+    background: radial-gradient(circle at top, #242c39 0%, var(--comcord-bg) 48%);
+    color: var(--comcord-text);
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+}
+
+canvas, #root > * {
+    width: 100%;
+    height: 100%;
 }
