@@ -6,7 +6,6 @@ import de.connect2x.trixnity.client.room
 import de.connect2x.trixnity.client.room.getAllState
 import de.connect2x.trixnity.client.store.Room
 import de.connect2x.trixnity.clientserverapi.client.SyncState
-import de.connect2x.trixnity.core.model.RoomId
 import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent.RoomType
 import de.connect2x.trixnity.core.model.events.m.room.Membership
 import de.connect2x.trixnity.core.model.events.m.space.ParentEventContent
@@ -90,17 +89,18 @@ class SpaceDirectoryStore(
                                         combine(
                                             stateByKey.map { (stateKey, stateFlow) ->
                                                 stateFlow.map { stateEvent -> stateKey to stateEvent }
-                                            }
+                                            },
                                         ) { stateEntries ->
                                             val parentIds =
-                                                stateEntries.mapNotNull { (stateKey, stateEvent) ->
-                                                    if (stateEvent == null) null else stateKey
-                                                }.toSet()
+                                                stateEntries
+                                                    .mapNotNull { (stateKey, stateEvent) ->
+                                                        if (stateEvent == null) null else stateKey
+                                                    }.toSet()
                                             room.roomId.full to parentIds
                                         }
                                     }
                                 }
-                        }
+                        },
                     ) { parentEntries -> parentEntries.toMap() }
                 }
 
@@ -131,7 +131,7 @@ internal fun buildSpaceDirectoryState(
             addAll(
                 spaces
                     .sortedBy { it.displayName.lowercase() }
-                    .map { SpaceSummary(id = it.roomId, name = it.displayName) }
+                    .map { SpaceSummary(id = it.roomId, name = it.displayName) },
             )
         }
 
@@ -147,7 +147,8 @@ internal fun buildSpaceDirectoryState(
                 isInvite = room.membership == Membership.INVITE,
             )
         roomsBySpace.getValue(ALL_ROOMS_SPACE_ID).add(summary)
-        parentLookup[room.roomId].orEmpty()
+        parentLookup[room.roomId]
+            .orEmpty()
             .filter { spaceIds.contains(it) }
             .forEach { parentId ->
                 roomsBySpace.getOrPut(parentId) { mutableListOf() }.add(summary)

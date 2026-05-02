@@ -27,7 +27,8 @@ class InMemoryTimelineRepository(
         val transactionId = "local-${room.id}-${nextTransaction++}"
         if (normalizedBody.startsWith("/fail")) {
             flow.value =
-                flow.value + TimelineEventRecord(
+                flow.value +
+                TimelineEventRecord(
                     id = "outbox-$transactionId",
                     authorId = senderId,
                     authorName = senderName,
@@ -41,7 +42,8 @@ class InMemoryTimelineRepository(
         }
 
         flow.value =
-            flow.value + TimelineEventRecord(
+            flow.value +
+            TimelineEventRecord(
                 id = transactionId,
                 authorId = senderId,
                 authorName = senderName,

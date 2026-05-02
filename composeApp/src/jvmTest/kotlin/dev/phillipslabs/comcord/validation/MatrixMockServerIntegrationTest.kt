@@ -2,23 +2,24 @@ package dev.phillipslabs.comcord.validation
 
 import de.connect2x.trixnity.client.MatrixClient
 import de.connect2x.trixnity.clientserverapi.client.ClassicMatrixClientAuthProviderData
-import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
-import de.connect2x.trixnity.messenger.MatrixClients
-import de.connect2x.trixnity.messenger.multi.create
-import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
 import de.connect2x.trixnity.clientserverapi.client.SyncState
 import de.connect2x.trixnity.clientserverapi.model.room.CreateRoom
 import de.connect2x.trixnity.clientserverapi.model.room.DirectoryVisibility
 import de.connect2x.trixnity.core.model.events.m.room.RoomMessageEventContent
+import de.connect2x.trixnity.messenger.MatrixClients
+import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
+import de.connect2x.trixnity.messenger.multi.create
+import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
 import dev.phillipslabs.comcord.ComcordMatrixSettings
 import dev.phillipslabs.comcord.applyComcordMatrixConfig
-import dev.phillipslabs.comcord.bootstrap.createComcordAppBootstrap
 import dev.phillipslabs.comcord.bootstrap.ComcordRootComponent
+import dev.phillipslabs.comcord.bootstrap.createComcordAppBootstrap
 import dev.phillipslabs.comcord.createJvmComcordHttpEngine
 import dev.phillipslabs.comcord.spaces.SpaceDirectoryStore
 import dev.phillipslabs.comcord.timeline.MatrixTimelineRepository
 import dev.phillipslabs.comcord.timeline.TimelineMessage
 import dev.phillipslabs.comcord.timeline.TimelineStore
+import io.ktor.http.Url
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -32,7 +33,6 @@ import org.testcontainers.containers.Network
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
-import io.ktor.http.Url
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -49,84 +49,90 @@ import kotlin.time.Duration.Companion.seconds
 
 class MatrixMockServerIntegrationTest {
     @Test
-    fun `comcord bootstrap can log in and observe real mock timeline`() = runBlocking(Dispatchers.Swing) {
-        val environment = withContext(Dispatchers.IO) { MatrixMockTestEnvironment.start() }
-        var rootComponent: ComcordRootComponent? = null
-        try {
-            val fixtureClient =
-                MatrixMockFixtureClient(
-                    baseUrl = environment.baseUrl,
-                    username = environment.username,
-                    password = environment.password,
-                )
+    fun `comcord bootstrap can log in and observe real mock timeline`() =
+        runBlocking(Dispatchers.Swing) {
+            val environment = withContext(Dispatchers.IO) { MatrixMockTestEnvironment.start() }
+            var rootComponent: ComcordRootComponent? = null
+            try {
+                val fixtureClient =
+                    MatrixMockFixtureClient(
+                        baseUrl = environment.baseUrl,
+                        username = environment.username,
+                        password = environment.password,
+                    )
 
-            rootComponent =
-                createComcordAppBootstrap {
-                    MatrixMultiMessenger
-                        .create {
-                            applyComcordMatrixConfig(
-                                ComcordMatrixSettings(
-                                    appId = "dev.phillipslabs.comcord.validation.${UUID.randomUUID()}",
-                                    httpClientEngine = createJvmComcordHttpEngine(),
-                                ),
-                            )
+                rootComponent =
+                    createComcordAppBootstrap {
+                        MatrixMultiMessenger
+                            .create {
+                                applyComcordMatrixConfig(
+                                    ComcordMatrixSettings(
+                                        appId = "dev.phillipslabs.comcord.validation.${UUID.randomUUID()}",
+                                        httpClientEngine = createJvmComcordHttpEngine(),
+                                    ),
+                                )
+                            }.singleModeMatrixMessenger()
+                            .first()
+                    }
+
+                val createResult =
+                    rootComponent.matrixMessenger.di
+                        .get<MatrixClients>()
+                        .create(fixtureClient.loginForAuthData())
+                assertEquals(MatrixClients.CreateResult.Success, createResult)
+
+                val activeSession =
+                    rootComponent.sessionStore.state
+                        .first { it.activeSession != null }
+                        .activeSession
+                assertNotNull(activeSession)
+                assertEquals(environment.userId, activeSession.userId.full)
+
+                activeSession.client.startSync()
+                withTimeout(20.seconds) {
+                    activeSession.client.syncState.first { it == SyncState.RUNNING }
+                }
+                val fixture = activeSession.client.createFixtureRoom()
+
+                val directoryStore = SpaceDirectoryStore(activeSession.client)
+                val directoryState =
+                    withTimeout(45.seconds) {
+                        directoryStore.observe().first { state ->
+                            state.roomsBySpace.values
+                                .flatten()
+                                .any { it.id == fixture.roomId }
                         }
-                        .singleModeMatrixMessenger()
-                        .first()
-                }
+                    }
+                val roomSummary =
+                    directoryState.roomsBySpace.values
+                        .flatten()
+                        .firstOrNull { it.id == fixture.roomId }
+                assertNotNull(roomSummary)
 
-            val createResult =
-                rootComponent.matrixMessenger.di.get<MatrixClients>().create(fixtureClient.loginForAuthData())
-            assertEquals(MatrixClients.CreateResult.Success, createResult)
-
-            val activeSession =
-                rootComponent.sessionStore.state.first { it.activeSession != null }.activeSession
-            assertNotNull(activeSession)
-            assertEquals(environment.userId, activeSession.userId.full)
-
-            activeSession.client.startSync()
-            withTimeout(20.seconds) {
-                activeSession.client.syncState.first { it == SyncState.RUNNING }
-            }
-            val fixture = activeSession.client.createFixtureRoom()
-
-            val directoryStore = SpaceDirectoryStore(activeSession.client)
-            val directoryState =
-                withTimeout(45.seconds) {
-                    directoryStore.observe().first { state ->
-                        state.roomsBySpace.values.flatten().any { it.id == fixture.roomId }
+                val timelineStore = TimelineStore(MatrixTimelineRepository(activeSession.client))
+                val timelineState =
+                    withTimeout(45.seconds) {
+                        timelineStore.observe(roomSummary, activeSession.userId.full).first { state ->
+                            state.items.filterIsInstance<TimelineMessage>().any { it.body == fixture.messageBody }
+                        }
+                    }
+                assertTrue(timelineState.isReady)
+                assertTrue(
+                    timelineState.items.filterIsInstance<TimelineMessage>().any { message ->
+                        message.body == fixture.messageBody && message.isOwn
+                    },
+                )
+            } finally {
+                rootComponent?.let { component ->
+                    withTimeout(10.seconds) {
+                        component.matrixMessenger.closeSuspending()
                     }
                 }
-            val roomSummary =
-                directoryState.roomsBySpace.values
-                    .flatten()
-                    .firstOrNull { it.id == fixture.roomId }
-            assertNotNull(roomSummary)
-
-            val timelineStore = TimelineStore(MatrixTimelineRepository(activeSession.client))
-            val timelineState =
-                withTimeout(45.seconds) {
-                    timelineStore.observe(roomSummary, activeSession.userId.full).first { state ->
-                        state.items.filterIsInstance<TimelineMessage>().any { it.body == fixture.messageBody }
-                    }
+                withContext(Dispatchers.IO) {
+                    environment.close()
                 }
-            assertTrue(timelineState.isReady)
-            assertTrue(
-                timelineState.items.filterIsInstance<TimelineMessage>().any { message ->
-                    message.body == fixture.messageBody && message.isOwn
-                },
-            )
-        } finally {
-            rootComponent?.let { component ->
-                withTimeout(10.seconds) {
-                    component.matrixMessenger.closeSuspending()
-                }
-            }
-            withContext(Dispatchers.IO) {
-                environment.close()
             }
         }
-    }
 }
 
 private data class MatrixFixture(
@@ -137,16 +143,18 @@ private data class MatrixFixture(
 private suspend fun MatrixClient.createFixtureRoom(): MatrixFixture {
     val roomName = "Comcord Validation ${UUID.randomUUID()}"
     val roomId =
-        api.room.createRoom(
-            visibility = DirectoryVisibility.PRIVATE,
-            name = roomName,
-            preset = CreateRoom.Request.Preset.PRIVATE,
-        ).getOrThrow()
+        api.room
+            .createRoom(
+                visibility = DirectoryVisibility.PRIVATE,
+                name = roomName,
+                preset = CreateRoom.Request.Preset.PRIVATE,
+            ).getOrThrow()
     val messageBody = "validation-${UUID.randomUUID()}"
-    api.room.sendMessageEvent(
-        roomId = roomId,
-        eventContent = RoomMessageEventContent.TextBased.Text(messageBody),
-    ).getOrThrow()
+    api.room
+        .sendMessageEvent(
+            roomId = roomId,
+            eventContent = RoomMessageEventContent.TextBased.Text(messageBody),
+        ).getOrThrow()
     return MatrixFixture(
         roomId = roomId.full,
         messageBody = messageBody,
@@ -158,7 +166,8 @@ private class MatrixMockFixtureClient(
     private val username: String,
     private val password: String,
     private val httpClient: HttpClient =
-        HttpClient.newBuilder()
+        HttpClient
+            .newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build(),
 ) {
@@ -200,7 +209,8 @@ private class MatrixMockFixtureClient(
         body: String? = null,
     ): String {
         val requestBuilder =
-            HttpRequest.newBuilder()
+            HttpRequest
+                .newBuilder()
                 .uri(URI.create("$baseUrl$path"))
                 .header("Content-Type", "application/json")
 
@@ -254,7 +264,8 @@ private class MatrixMockTestEnvironment private constructor(
                     .withFileSystemBind(tempDir.resolve("data").toString(), "/data", BindMode.READ_WRITE)
                     .withFileSystemBind(tempDir.resolve("config").toString(), "/config", BindMode.READ_ONLY)
                     .waitingFor(
-                        Wait.forHttp("/_matrix/client/versions")
+                        Wait
+                            .forHttp("/_matrix/client/versions")
                             .forPort(8008)
                             .forStatusCode(200),
                     )
@@ -264,20 +275,26 @@ private class MatrixMockTestEnvironment private constructor(
             return MatrixMockTestEnvironment(tempDir, network, synapse, username, password)
         }
 
-        private fun seedUsers(tempDir: Path, network: Network) {
+        private fun seedUsers(
+            tempDir: Path,
+            network: Network,
+        ) {
             GenericContainer(synapseImage)
                 .withNetwork(network)
                 .withFileSystemBind(tempDir.resolve("data").toString(), "/data", BindMode.READ_WRITE)
                 .withFileSystemBind(tempDir.resolve("seed").toString(), "/seed", BindMode.READ_ONLY)
                 .withCreateContainerCmdModifier { command ->
                     command.withEntrypoint("/bin/sh", "/seed/seed-users.sh")
-                }
-                .withStartupCheckStrategy(OneShotStartupCheckStrategy())
+                }.withStartupCheckStrategy(OneShotStartupCheckStrategy())
                 .waitingFor(Wait.forLogMessage(".*User seeding complete\\.\n", 1))
                 .start()
         }
 
-        private fun prepareFixtureDirectory(tempDir: Path, username: String, password: String) {
+        private fun prepareFixtureDirectory(
+            tempDir: Path,
+            username: String,
+            password: String,
+        ) {
             Files.createDirectories(tempDir.resolve("data"))
             Files.createDirectories(tempDir.resolve("config"))
             Files.createDirectories(tempDir.resolve("seed"))
@@ -310,7 +327,10 @@ private class MatrixMockTestEnvironment private constructor(
             Files.writeString(tempDir.resolve("seed/users.csv"), "$username:$password:admin\n")
         }
 
-        private fun copyFixtureFile(sourceRelativePath: String, destination: Path) {
+        private fun copyFixtureFile(
+            sourceRelativePath: String,
+            destination: Path,
+        ) {
             Files.copy(
                 repoRoot().resolve(sourceRelativePath),
                 destination,

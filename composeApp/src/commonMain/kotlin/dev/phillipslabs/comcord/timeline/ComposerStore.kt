@@ -72,7 +72,8 @@ class ComposerStore(
             current.copy(isSending = true, errorMessage = null)
         }
 
-        repository.sendMessage(room, senderId, senderName, draft)
+        repository
+            .sendMessage(room, senderId, senderName, draft)
             .onSuccess {
                 draftsByAccountAndRoom.remove(draftKey(context.accountId, room.id))
                 if (selectedContext == context) {
@@ -89,5 +90,8 @@ class ComposerStore(
             }
     }
 
-    private fun draftKey(accountId: String, roomId: String): String = "$accountId::$roomId"
+    private fun draftKey(
+        accountId: String,
+        roomId: String,
+    ): String = "$accountId::$roomId"
 }

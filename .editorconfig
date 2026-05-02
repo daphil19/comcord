@@ -1,4 +1,14 @@
 [*.{kt,kts}]
+# Compose specific
 ktlint_function_naming_ignore_when_annotated_with = Composable
+
 # Disable wildcard imports because we can't configure them in fleet
 ktlint_standard_no-wildcard-imports = disabled
+
+# Comcord preferences
+ktlint_standard_function-naming = disabled
+ktlint_standard_filename = disabled
+
+# Match Jetpack Compose rules (io.nlopez.compose.rules)
+# These rules use the 'compose' prefix in newer versions
+compose_compiler_reports = true

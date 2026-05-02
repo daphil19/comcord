@@ -32,12 +32,16 @@ class TimelineStore(
     private val repository: TimelineRepository,
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
-    fun observe(selectedRoom: RoomSummary?, currentUserId: String): Flow<TimelineState> {
+    fun observe(
+        selectedRoom: RoomSummary?,
+        currentUserId: String,
+    ): Flow<TimelineState> {
         if (selectedRoom == null) return flowOf(TimelineState())
 
         val baseState = selectedRoom.baseTimelineState()
 
-        return repository.observeRoom(selectedRoom)
+        return repository
+            .observeRoom(selectedRoom)
             .map { entries ->
                 baseState.copy(
                     items = buildTimelineItems(entries = entries, currentUserId = currentUserId, timeZone = timeZone),

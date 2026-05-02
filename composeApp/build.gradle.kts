@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.ktlint)
 }
 
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -134,7 +135,14 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.ui.tooling)
-//    ktlintRuleset(libs.ktlint.compose)
+    ktlintRuleset(libs.ktlint.compose)
+}
+
+ktlint {
+    version.set(libs.versions.ktlint.get())
+    filter {
+        exclude { it.file.absolutePath.contains("/build/generated/") }
+    }
 }
 
 // TODO we _probably_ need to update this to wokr correctly...

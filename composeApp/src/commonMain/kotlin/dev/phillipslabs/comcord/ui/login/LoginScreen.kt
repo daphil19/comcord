@@ -28,9 +28,12 @@ import dev.phillipslabs.comcord.account.collectAsStateCompat
 import dev.phillipslabs.comcord.design.ComcordColors
 
 @Composable
-fun RouteStatusScreen(status: String) {
+fun RouteStatusScreen(
+    status: String,
+    modifier: Modifier = Modifier,
+) {
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         color = ComcordColors.AppBackground,
     ) {
         Box(
@@ -45,6 +48,7 @@ fun RouteStatusScreen(status: String) {
 @Composable
 fun AddMatrixAccountScreen(
     viewModel: AddMatrixAccountViewModel,
+    modifier: Modifier = Modifier,
     presenter: LoginPresenter = LoginPresenter(),
 ) {
     val serverField by viewModel.serverUrl.collectAsStateCompat()
@@ -59,7 +63,7 @@ fun AddMatrixAccountScreen(
     val uiState = presenter.addAccountState(viewModel)
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         color = ComcordColors.AppBackground,
     ) {
         Column(
@@ -105,6 +109,7 @@ fun AddMatrixAccountScreen(
 @Composable
 fun PasswordLoginScreen(
     viewModel: PasswordLoginViewModel,
+    modifier: Modifier = Modifier,
     presenter: LoginPresenter = LoginPresenter(),
 ) {
     val usernameField by viewModel.username.collectAsStateCompat()
@@ -114,7 +119,7 @@ fun PasswordLoginScreen(
     val uiState = presenter.passwordLoginState(viewModel)
 
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         color = ComcordColors.AppBackground,
     ) {
         Column(

@@ -1,8 +1,8 @@
 package dev.phillipslabs.comcord.account
 
 import de.connect2x.trixnity.client.MatrixClient
-import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.core.model.UserId
+import de.connect2x.trixnity.messenger.MatrixClients
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine

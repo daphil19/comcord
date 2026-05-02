@@ -25,8 +25,22 @@ class RoomListStoreTest {
         val result = RoomListStore().build(ALL_ROOMS_SPACE_ID, state)
 
         assertEquals(listOf("Invites", "Rooms"), result.sections.map { it.title })
-        assertEquals("!invite:example.com", result.sections.first().rooms.first().id)
-        assertEquals("!room:example.com", result.sections.last().rooms.first().id)
+        assertEquals(
+            "!invite:example.com",
+            result.sections
+                .first()
+                .rooms
+                .first()
+                .id,
+        )
+        assertEquals(
+            "!room:example.com",
+            result.sections
+                .last()
+                .rooms
+                .first()
+                .id,
+        )
     }
 
     @Test
@@ -48,6 +62,13 @@ class RoomListStoreTest {
         val result = RoomListStore().build(ALL_ROOMS_SPACE_ID, state)
 
         assertEquals(listOf("Direct Messages", "Rooms"), result.sections.map { it.title })
-        assertEquals("!dm:example.com", result.sections.first().rooms.first().id)
+        assertEquals(
+            "!dm:example.com",
+            result.sections
+                .first()
+                .rooms
+                .first()
+                .id,
+        )
     }
 }

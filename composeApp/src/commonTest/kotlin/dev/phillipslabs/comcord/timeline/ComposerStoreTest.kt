@@ -20,103 +20,111 @@ class ComposerStoreTest {
     private val random = RoomSummary(id = "!other:example.com", name = "Random", kind = RoomKind.Room)
 
     @Test
-    fun `send message clears draft on success`() = runTest {
-        val repository = RecordingTimelineRepository()
-        val store = ComposerStore(repository)
-        store.setContext(alice, general)
-        store.updateDraft("Hello world")
+    fun `send message clears draft on success`() =
+        runTest {
+            val repository = RecordingTimelineRepository()
+            val store = ComposerStore(repository)
+            store.setContext(alice, general)
+            store.updateDraft("Hello world")
 
-        store.sendMessage(senderId = "@alice:example.com", senderName = "Alice")
+            store.sendMessage(senderId = "@alice:example.com", senderName = "Alice")
 
-        assertEquals("", store.state.value.draft)
-        assertFalse(store.state.value.isSending)
-        assertEquals("Hello world", repository.lastMessageBody)
-    }
-
-    @Test
-    fun `send message keeps draft on failure`() = runTest {
-        val repository = RecordingTimelineRepository(shouldFail = true)
-        val store = ComposerStore(repository)
-        store.setContext(alice, general)
-        store.updateDraft("Will fail")
-
-        store.sendMessage(senderId = "@alice:example.com", senderName = "Alice")
-
-        assertEquals("Will fail", store.state.value.draft)
-        assertTrue(store.state.value.errorMessage?.contains("Unable") == true)
-    }
+            assertEquals("", store.state.value.draft)
+            assertFalse(store.state.value.isSending)
+            assertEquals("Hello world", repository.lastMessageBody)
+        }
 
     @Test
-    fun `drafts are restored per account and room`() = runTest {
-        val repository = RecordingTimelineRepository()
-        val store = ComposerStore(repository)
+    fun `send message keeps draft on failure`() =
+        runTest {
+            val repository = RecordingTimelineRepository(shouldFail = true)
+            val store = ComposerStore(repository)
+            store.setContext(alice, general)
+            store.updateDraft("Will fail")
 
-        store.setContext(alice, general)
-        store.updateDraft("Alice general")
-        store.setContext(alice, random)
-        store.updateDraft("Alice random")
-        store.setContext(bob, general)
-        store.updateDraft("Bob general")
+            store.sendMessage(senderId = "@alice:example.com", senderName = "Alice")
 
-        store.setContext(alice, general)
-        assertEquals("Alice general", store.state.value.draft)
+            assertEquals("Will fail", store.state.value.draft)
+            assertTrue(
+                store.state.value.errorMessage
+                    ?.contains("Unable") == true,
+            )
+        }
 
-        store.setContext(alice, random)
-        assertEquals("Alice random", store.state.value.draft)
+    @Test
+    fun `drafts are restored per account and room`() =
+        runTest {
+            val repository = RecordingTimelineRepository()
+            val store = ComposerStore(repository)
 
-        store.setContext(bob, general)
-        assertEquals("Bob general", store.state.value.draft)
-    }
+            store.setContext(alice, general)
+            store.updateDraft("Alice general")
+            store.setContext(alice, random)
+            store.updateDraft("Alice random")
+            store.setContext(bob, general)
+            store.updateDraft("Bob general")
+
+            store.setContext(alice, general)
+            assertEquals("Alice general", store.state.value.draft)
+
+            store.setContext(alice, random)
+            assertEquals("Alice random", store.state.value.draft)
+
+            store.setContext(bob, general)
+            assertEquals("Bob general", store.state.value.draft)
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `send success does not clear newly selected room draft`() = runTest {
-        val sendResult = CompletableDeferred<Result<Unit>>()
-        val repository = DeferredTimelineRepository(sendResult)
-        val store = ComposerStore(repository)
-        store.setContext(alice, general)
-        store.updateDraft("General message")
+    fun `send success does not clear newly selected room draft`() =
+        runTest {
+            val sendResult = CompletableDeferred<Result<Unit>>()
+            val repository = DeferredTimelineRepository(sendResult)
+            val store = ComposerStore(repository)
+            store.setContext(alice, general)
+            store.updateDraft("General message")
 
-        val sendJob = launch { store.sendMessage(senderId = alice, senderName = "Alice") }
-        runCurrent()
+            val sendJob = launch { store.sendMessage(senderId = alice, senderName = "Alice") }
+            runCurrent()
 
-        store.setContext(alice, random)
-        store.updateDraft("Random message")
-        sendResult.complete(Result.success(Unit))
-        sendJob.join()
+            store.setContext(alice, random)
+            store.updateDraft("Random message")
+            sendResult.complete(Result.success(Unit))
+            sendJob.join()
 
-        assertEquals("Random message", store.state.value.draft)
-        assertFalse(store.state.value.isSending)
-        assertEquals(null, store.state.value.errorMessage)
+            assertEquals("Random message", store.state.value.draft)
+            assertFalse(store.state.value.isSending)
+            assertEquals(null, store.state.value.errorMessage)
 
-        store.setContext(alice, general)
-        assertEquals("", store.state.value.draft)
-    }
+            store.setContext(alice, general)
+            assertEquals("", store.state.value.draft)
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `send failure does not show error in newly selected room`() = runTest {
-        val sendResult = CompletableDeferred<Result<Unit>>()
-        val repository = DeferredTimelineRepository(sendResult)
-        val store = ComposerStore(repository)
-        store.setContext(alice, general)
-        store.updateDraft("General message")
+    fun `send failure does not show error in newly selected room`() =
+        runTest {
+            val sendResult = CompletableDeferred<Result<Unit>>()
+            val repository = DeferredTimelineRepository(sendResult)
+            val store = ComposerStore(repository)
+            store.setContext(alice, general)
+            store.updateDraft("General message")
 
-        val sendJob = launch { store.sendMessage(senderId = alice, senderName = "Alice") }
-        runCurrent()
+            val sendJob = launch { store.sendMessage(senderId = alice, senderName = "Alice") }
+            runCurrent()
 
-        store.setContext(alice, random)
-        store.updateDraft("Random message")
-        sendResult.complete(Result.failure(IllegalStateException("Unable to send")))
-        sendJob.join()
+            store.setContext(alice, random)
+            store.updateDraft("Random message")
+            sendResult.complete(Result.failure(IllegalStateException("Unable to send")))
+            sendJob.join()
 
-        assertEquals("Random message", store.state.value.draft)
-        assertFalse(store.state.value.isSending)
-        assertEquals(null, store.state.value.errorMessage)
+            assertEquals("Random message", store.state.value.draft)
+            assertFalse(store.state.value.isSending)
+            assertEquals(null, store.state.value.errorMessage)
 
-        store.setContext(alice, general)
-        assertEquals("General message", store.state.value.draft)
-    }
+            store.setContext(alice, general)
+            assertEquals("General message", store.state.value.draft)
+        }
 
     private class RecordingTimelineRepository(
         private val shouldFail: Boolean = false,

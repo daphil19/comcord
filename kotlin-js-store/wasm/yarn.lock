@@ -22,6 +22,11 @@
   resolved "https://registry.yarnpkg.com/@zip.js/zip.js/-/zip.js-2.7.72.tgz#2c53887c2a3b79e9d9f1c63f048bc0cf485703c3"
   integrity sha512-3/A4JwrgkvGBlCxtItjxs8HrNbuTAAl/zlGkV6tC5Fb5k5nk4x2Dqxwl/YnUys5Ch+QB01eJ8Q5K/J2uXfy9Vw==
 
+pako@2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/pako/-/pako-2.1.0.tgz#266cc37f98c7d883545d11335c00fbd4062c9a86"
+  integrity sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==
+
 "trixnity-olm-wrapper@https://gitlab.com/api/v4/projects/46553592/packages/generic/build/v2.0.4/trixnity-olm-wrapper.tgz":
   version "0.0.1"
   resolved "https://gitlab.com/api/v4/projects/46553592/packages/generic/build/v2.0.4/trixnity-olm-wrapper.tgz#f7c0aa87d22688bbb6c802d699fd60e2cdd151be"

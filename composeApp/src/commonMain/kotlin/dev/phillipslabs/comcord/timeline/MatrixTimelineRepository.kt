@@ -156,7 +156,10 @@ class MatrixTimelineRepository(
     }
 }
 
-private fun membershipNotice(userId: String, membership: String): String =
+private fun membershipNotice(
+    userId: String,
+    membership: String,
+): String =
     when (membership) {
         "join" -> "$userId joined the room."
         "invite" -> "$userId was invited."

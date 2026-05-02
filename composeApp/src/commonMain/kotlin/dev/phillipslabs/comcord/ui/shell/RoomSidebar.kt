@@ -37,10 +37,11 @@ fun RoomSidebar(
     roomListState: RoomListState,
     selectedRoomId: String?,
     onSelectRoom: (RoomSummary) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
-            Modifier
+            modifier
                 .fillMaxHeight()
                 .width(300.dp)
                 .background(ComcordColors.SurfaceSecondary)

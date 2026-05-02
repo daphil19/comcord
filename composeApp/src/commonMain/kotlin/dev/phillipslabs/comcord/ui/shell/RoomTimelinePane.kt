@@ -55,10 +55,11 @@ fun RoomTimelinePane(
     onDraftChange: (String) -> Unit,
     onSendMessage: () -> Unit,
     onRetryMessage: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
-            Modifier
+            modifier
                 .fillMaxSize()
                 .background(ComcordColors.SurfaceTertiary),
     ) {
@@ -177,25 +178,43 @@ private fun TimelineUnavailableState(
 ) {
     val title =
         when (loadState) {
-            TimelineLoadState.NoRoomSelected ->
+            TimelineLoadState.NoRoomSelected -> {
                 if (hasRooms) "Select a room to load its timeline." else "No rooms in this space yet."
+            }
 
-            TimelineLoadState.Loading -> "Loading conversation..."
-            TimelineLoadState.Error -> "Unable to load this conversation."
-            TimelineLoadState.Ready -> ""
+            TimelineLoadState.Loading -> {
+                "Loading conversation..."
+            }
+
+            TimelineLoadState.Error -> {
+                "Unable to load this conversation."
+            }
+
+            TimelineLoadState.Ready -> {
+                ""
+            }
         }
     val detail =
         when (loadState) {
-            TimelineLoadState.NoRoomSelected ->
+            TimelineLoadState.NoRoomSelected -> {
                 if (hasRooms) {
                     "Sync: $syncStateLabel"
                 } else {
                     "Switch spaces or create a room after sync completes."
                 }
+            }
 
-            TimelineLoadState.Loading -> "Sync: $syncStateLabel"
-            TimelineLoadState.Error -> errorMessage ?: "Try selecting the room again after sync catches up."
-            TimelineLoadState.Ready -> ""
+            TimelineLoadState.Loading -> {
+                "Sync: $syncStateLabel"
+            }
+
+            TimelineLoadState.Error -> {
+                errorMessage ?: "Try selecting the room again after sync catches up."
+            }
+
+            TimelineLoadState.Ready -> {
+                ""
+            }
         }
 
     Column(

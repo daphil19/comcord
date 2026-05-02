@@ -1,8 +1,8 @@
 package dev.phillipslabs.comcord.ui.shell
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,10 +19,11 @@ import dev.phillipslabs.comcord.rooms.RoomSummary
 fun RoomTopBar(
     selectedRoom: RoomSummary?,
     subtitle: String,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .background(ComcordColors.SurfacePrimary)
                 .padding(horizontal = 18.dp, vertical = 14.dp),

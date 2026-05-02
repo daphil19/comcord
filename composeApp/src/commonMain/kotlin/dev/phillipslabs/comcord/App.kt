@@ -12,22 +12,29 @@ import dev.phillipslabs.comcord.ui.shell.ComcordShell
 
 @Composable
 fun App(rootComponent: ComcordRootComponent) {
-    val route = rootComponent.rootViewModel.stack.subscribeAsState().value.active.instance
+    val route =
+        rootComponent.rootViewModel.stack
+            .subscribeAsState()
+            .value.active.instance
     val destination = route.toAppDestination()
 
     ComcordTheme {
         when (destination) {
-            is dev.phillipslabs.comcord.navigation.AppDestination.AddAccount ->
+            is dev.phillipslabs.comcord.navigation.AppDestination.AddAccount -> {
                 AddMatrixAccountScreen(destination.viewModel)
+            }
 
-            is dev.phillipslabs.comcord.navigation.AppDestination.PasswordLogin ->
+            is dev.phillipslabs.comcord.navigation.AppDestination.PasswordLogin -> {
                 PasswordLoginScreen(destination.viewModel)
+            }
 
-            dev.phillipslabs.comcord.navigation.AppDestination.Main ->
+            dev.phillipslabs.comcord.navigation.AppDestination.Main -> {
                 ComcordShell(rootComponent)
+            }
 
-            is dev.phillipslabs.comcord.navigation.AppDestination.Status ->
+            is dev.phillipslabs.comcord.navigation.AppDestination.Status -> {
                 RouteStatusScreen(destination.label)
+            }
         }
     }
 }

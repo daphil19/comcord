@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,10 +28,11 @@ fun LeftRail(
     selectedSpaceId: String,
     onSelectSpace: (String) -> Unit,
     onLogout: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier =
-            Modifier
+            modifier
                 .fillMaxHeight()
                 .width(if (compact) 60.dp else 76.dp)
                 .background(ComcordColors.SurfacePrimary)

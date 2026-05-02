@@ -5,13 +5,19 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountView
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
 
 sealed interface AppDestination {
-    data class AddAccount(val viewModel: AddMatrixAccountViewModel) : AppDestination
+    data class AddAccount(
+        val viewModel: AddMatrixAccountViewModel,
+    ) : AppDestination
 
-    data class PasswordLogin(val viewModel: PasswordLoginViewModel) : AppDestination
+    data class PasswordLogin(
+        val viewModel: PasswordLoginViewModel,
+    ) : AppDestination
 
     data object Main : AppDestination
 
-    data class Status(val label: String) : AppDestination
+    data class Status(
+        val label: String,
+    ) : AppDestination
 }
 
 fun RootRouter.Wrapper.toAppDestination(): AppDestination =

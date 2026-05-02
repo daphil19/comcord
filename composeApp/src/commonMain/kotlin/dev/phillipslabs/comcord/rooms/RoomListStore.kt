@@ -7,7 +7,10 @@ data class RoomListState(
 )
 
 class RoomListStore {
-    fun build(spaceId: String, directoryState: SpaceDirectoryState): RoomListState {
+    fun build(
+        spaceId: String,
+        directoryState: SpaceDirectoryState,
+    ): RoomListState {
         val rooms = directoryState.roomsBySpace[spaceId].orEmpty()
         val inviteRooms = rooms.filter { it.isInvite }
         val directMessages = rooms.filter { it.kind == RoomKind.DirectMessage && !it.isInvite }

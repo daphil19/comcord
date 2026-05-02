@@ -3,9 +3,9 @@ package dev.phillipslabs.comcord.timeline
 import dev.phillipslabs.comcord.rooms.RoomKind
 import dev.phillipslabs.comcord.rooms.RoomSummary
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -16,81 +16,89 @@ import kotlin.test.assertTrue
 
 class TimelineStoreTest {
     @Test
-    fun `observe builds timeline state for selected room`() = runTest {
-        val store =
-            TimelineStore(
-                repository =
-                    FakeTimelineRepository(
-                        entries =
-                            listOf(
-                                TimelineEventRecord(
-                                    id = "one",
-                                    authorId = "@alice:example.com",
-                                    authorName = "Alice",
-                                    body = "Hello",
-                                    timestamp = Instant.parse("2026-04-18T10:15:00Z"),
-                                    kind = TimelineEventKind.Message,
+    fun `observe builds timeline state for selected room`() =
+        runTest {
+            val store =
+                TimelineStore(
+                    repository =
+                        FakeTimelineRepository(
+                            entries =
+                                listOf(
+                                    TimelineEventRecord(
+                                        id = "one",
+                                        authorId = "@alice:example.com",
+                                        authorName = "Alice",
+                                        body = "Hello",
+                                        timestamp = Instant.parse("2026-04-18T10:15:00Z"),
+                                        kind = TimelineEventKind.Message,
+                                    ),
                                 ),
-                            ),
-                    ),
-                timeZone = TimeZone.UTC,
-            )
+                        ),
+                    timeZone = TimeZone.UTC,
+                )
 
-        val state =
-            store.observe(
-                selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
-                currentUserId = "@alice:example.com",
-            ).drop(1).first()
+            val state =
+                store
+                    .observe(
+                        selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
+                        currentUserId = "@alice:example.com",
+                    ).drop(1)
+                    .first()
 
-        assertEquals("!room:example.com", state.roomId)
-        assertEquals("General", state.roomName)
-        assertEquals(TimelineLoadState.Ready, state.loadState)
-        assertTrue(state.isReady)
-        assertEquals(2, state.items.size)
-        assertIs<TimelineDateDivider>(state.items.first())
-        assertIs<TimelineMessage>(state.items.last())
-    }
-
-    @Test
-    fun `observe emits loading state before room entries`() = runTest {
-        val store =
-            TimelineStore(
-                repository = FakeTimelineRepository(emptyList()),
-                timeZone = TimeZone.UTC,
-            )
-
-        val state =
-            store.observe(
-                selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
-                currentUserId = "@alice:example.com",
-            ).first()
-
-        assertEquals("!room:example.com", state.roomId)
-        assertEquals("General", state.roomName)
-        assertEquals(TimelineLoadState.Loading, state.loadState)
-        assertTrue(state.items.isEmpty())
-    }
+            assertEquals("!room:example.com", state.roomId)
+            assertEquals("General", state.roomName)
+            assertEquals(TimelineLoadState.Ready, state.loadState)
+            assertTrue(state.isReady)
+            assertEquals(2, state.items.size)
+            assertIs<TimelineDateDivider>(state.items.first())
+            assertIs<TimelineMessage>(state.items.last())
+        }
 
     @Test
-    fun `observe emits error state when repository fails`() = runTest {
-        val store =
-            TimelineStore(
-                repository = FailingTimelineRepository(),
-                timeZone = TimeZone.UTC,
-            )
+    fun `observe emits loading state before room entries`() =
+        runTest {
+            val store =
+                TimelineStore(
+                    repository = FakeTimelineRepository(emptyList()),
+                    timeZone = TimeZone.UTC,
+                )
 
-        val state =
-            store.observe(
-                selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
-                currentUserId = "@alice:example.com",
-            ).drop(1).first()
+            val state =
+                store
+                    .observe(
+                        selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
+                        currentUserId = "@alice:example.com",
+                    ).first()
 
-        assertEquals("!room:example.com", state.roomId)
-        assertEquals("General", state.roomName)
-        assertEquals(TimelineLoadState.Error, state.loadState)
-        assertEquals("Timeline unavailable", state.errorMessage)
-        assertTrue(state.items.isEmpty())
-    }
+            assertEquals("!room:example.com", state.roomId)
+            assertEquals("General", state.roomName)
+            assertEquals(TimelineLoadState.Loading, state.loadState)
+            assertTrue(state.items.isEmpty())
+        }
+
+    @Test
+    fun `observe emits error state when repository fails`() =
+        runTest {
+            val store =
+                TimelineStore(
+                    repository = FailingTimelineRepository(),
+                    timeZone = TimeZone.UTC,
+                )
+
+            val state =
+                store
+                    .observe(
+                        selectedRoom = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room),
+                        currentUserId = "@alice:example.com",
+                    ).drop(1)
+                    .first()
+
+            assertEquals("!room:example.com", state.roomId)
+            assertEquals("General", state.roomName)
+            assertEquals(TimelineLoadState.Error, state.loadState)
+            assertEquals("Timeline unavailable", state.errorMessage)
+            assertTrue(state.items.isEmpty())
+        }
 
     @Test
     fun `build timeline items inserts date divider and groups consecutive messages`() {
@@ -152,17 +160,18 @@ class TimelineStoreTest {
     }
 
     @Test
-    fun `retry message delegates to repository`() = runTest {
-        val repository = FakeTimelineRepository(emptyList())
-        val room = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room)
-        val store = TimelineStore(repository, timeZone = TimeZone.UTC)
+    fun `retry message delegates to repository`() =
+        runTest {
+            val repository = FakeTimelineRepository(emptyList())
+            val room = RoomSummary(id = "!room:example.com", name = "General", kind = RoomKind.Room)
+            val store = TimelineStore(repository, timeZone = TimeZone.UTC)
 
-        val result = store.retryMessage(room, "txn-one")
+            val result = store.retryMessage(room, "txn-one")
 
-        assertTrue(result.isSuccess)
-        assertEquals(room, repository.lastRetriedRoom)
-        assertEquals("txn-one", repository.lastRetryKey)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(room, repository.lastRetriedRoom)
+            assertEquals("txn-one", repository.lastRetryKey)
+        }
 
     private class FakeTimelineRepository(
         private val entries: List<TimelineEventRecord>,

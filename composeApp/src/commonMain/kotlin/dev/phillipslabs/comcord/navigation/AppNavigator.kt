@@ -16,13 +16,14 @@ class AppNavigator(
 ) {
     private val mutableState = MutableStateFlow(initialState)
 
-    fun observe(accountId: String): Flow<AppNavigationState> =
-        mutableState.map { states -> states[accountId] ?: AppNavigationState() }
+    fun observe(accountId: String): Flow<AppNavigationState> = mutableState.map { states -> states[accountId] ?: AppNavigationState() }
 
-    fun currentState(accountId: String): AppNavigationState =
-        mutableState.value[accountId] ?: AppNavigationState()
+    fun currentState(accountId: String): AppNavigationState = mutableState.value[accountId] ?: AppNavigationState()
 
-    fun selectSpace(accountId: String, spaceId: String) {
+    fun selectSpace(
+        accountId: String,
+        spaceId: String,
+    ) {
         mutableState.update { current ->
             current.updateAccount(accountId) { state ->
                 if (state.selectedSpaceId == spaceId) {
@@ -34,7 +35,10 @@ class AppNavigator(
         }
     }
 
-    fun selectRoom(accountId: String, roomId: String?) {
+    fun selectRoom(
+        accountId: String,
+        roomId: String?,
+    ) {
         mutableState.update { current ->
             current.updateAccount(accountId) { state ->
                 if (state.selectedRoomId == roomId) state else state.copy(selectedRoomId = roomId)
@@ -42,7 +46,11 @@ class AppNavigator(
         }
     }
 
-    fun reconcile(accountId: String, availableSpaceIds: Set<String>, availableRoomIds: Set<String>) {
+    fun reconcile(
+        accountId: String,
+        availableSpaceIds: Set<String>,
+        availableRoomIds: Set<String>,
+    ) {
         mutableState.update { current ->
             current.updateAccount(accountId) { state ->
                 val nextSpaceId =
@@ -53,7 +61,10 @@ class AppNavigator(
         }
     }
 
-    fun ensureRoomSelected(accountId: String, availableRoomIds: List<String>) {
+    fun ensureRoomSelected(
+        accountId: String,
+        availableRoomIds: List<String>,
+    ) {
         mutableState.update { current ->
             current.updateAccount(accountId) { state ->
                 val nextRoomId = state.selectedRoomId?.takeIf { availableRoomIds.contains(it) } ?: availableRoomIds.firstOrNull()

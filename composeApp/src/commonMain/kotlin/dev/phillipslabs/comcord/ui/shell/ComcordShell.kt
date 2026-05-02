@@ -33,7 +33,10 @@ import dev.phillipslabs.comcord.timeline.TimelineStore
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComcordShell(rootComponent: ComcordRootComponent) {
+fun ComcordShell(
+    rootComponent: ComcordRootComponent,
+    modifier: Modifier = Modifier,
+) {
     val scope = rememberCoroutineScope()
     val sessionState by rootComponent.sessionStore.state.collectAsStateCompat(
         AccountSessionState(emptyList(), null),
@@ -42,7 +45,7 @@ fun ComcordShell(rootComponent: ComcordRootComponent) {
 
     if (activeSession == null) {
         Column(
-            modifier = Modifier.fillMaxSize().background(ComcordColors.AppBackground).padding(24.dp),
+            modifier = modifier.fillMaxSize().background(ComcordColors.AppBackground).padding(24.dp),
         ) {
             Text("No active account", color = ComcordColors.TextStrong)
         }
@@ -59,15 +62,20 @@ fun ComcordShell(rootComponent: ComcordRootComponent) {
             syncStateLabel = "Starting sync",
         ),
     )
-    val navigationFlow = remember(rootComponent.appNavigator, accountId) {
-        rootComponent.appNavigator.observe(accountId)
-    }
+    val navigationFlow =
+        remember(rootComponent.appNavigator, accountId) {
+            rootComponent.appNavigator.observe(accountId)
+        }
     val navState by navigationFlow.collectAsStateCompat(
         rootComponent.appNavigator.currentState(accountId),
     )
     val roomListStore = remember { RoomListStore() }
     val roomListState = roomListStore.build(navState.selectedSpaceId, directoryState)
-    val availableRoomIds = directoryState.roomsBySpace.values.flatten().map { it.id }.toSet()
+    val availableRoomIds =
+        directoryState.roomsBySpace.values
+            .flatten()
+            .map { it.id }
+            .toSet()
     val activeSpaceRoomIds = directoryState.roomsBySpace[navState.selectedSpaceId].orEmpty().map { it.id }
 
     LaunchedEffect(directoryState.spaces, availableRoomIds) {
@@ -88,9 +96,10 @@ fun ComcordShell(rootComponent: ComcordRootComponent) {
     val timelineRepository = remember(activeSession.client) { MatrixTimelineRepository(activeSession.client) }
     val timelineStore = remember(timelineRepository) { TimelineStore(timelineRepository) }
     val composerStore = remember(timelineRepository) { ComposerStore(timelineRepository) }
-    val timelineFlow = remember(timelineStore, selectedRoom, accountId) {
-        timelineStore.observe(selectedRoom, accountId)
-    }
+    val timelineFlow =
+        remember(timelineStore, selectedRoom, accountId) {
+            timelineStore.observe(selectedRoom, accountId)
+        }
     val timelineState by timelineFlow.collectAsStateCompat(TimelineState())
     val composerState by composerStore.state.collectAsStateCompat()
 
@@ -98,7 +107,7 @@ fun ComcordShell(rootComponent: ComcordRootComponent) {
         composerStore.setContext(accountId, selectedRoom)
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(ComcordColors.AppBackground)) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(ComcordColors.AppBackground)) {
         val windowSizeClass = rememberWindowSizeClass(maxWidth)
         Row(modifier = Modifier.fillMaxSize()) {
             LeftRail(

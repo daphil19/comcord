@@ -26,8 +26,7 @@ fun main() {
                                 httpClientEngine = createJvmComcordHttpEngine(),
                             ),
                         )
-                    }
-                    .singleModeMatrixMessenger()
+                    }.singleModeMatrixMessenger()
                     .first()
             }
         }

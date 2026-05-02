@@ -55,6 +55,12 @@ class SpaceDirectoryStoreTest {
                 syncStateLabel = "Synced",
             )
 
-        assertEquals(RoomKind.DirectMessage, state.roomsBySpace.getValue(ALL_ROOMS_SPACE_ID).single().kind)
+        assertEquals(
+            RoomKind.DirectMessage,
+            state.roomsBySpace
+                .getValue(ALL_ROOMS_SPACE_ID)
+                .single()
+                .kind,
+        )
     }
 }
