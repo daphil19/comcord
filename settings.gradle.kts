@@ -32,9 +32,9 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         create("ktor") {
-            from("io.ktor:ktor-version-catalog:3.4.1")
+            from("io.ktor:ktor-version-catalog:3.5.2")
         }
     }
 }
 
-include(":composeApp")
+include(":composeApp", ":androidApp")

@@ -3,7 +3,6 @@ package dev.phillipslabs.comcord
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import de.connect2x.trixnity.messenger.create
 import de.connect2x.trixnity.messenger.createRoot
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
 import de.connect2x.trixnity.messenger.multi.create
@@ -25,9 +24,8 @@ class MainActivity : ComponentActivity() {
                         comcordMatrixConfig()
                     }.singleModeMatrixMessenger()
                     .first()
-            val rootViewModel = matrixMessenger.createRoot()
-
             withContext(Dispatchers.Main) {
+                val rootViewModel = matrixMessenger.createRoot()
                 setContent {
                     App(rootViewModel, matrixMessenger)
                 }

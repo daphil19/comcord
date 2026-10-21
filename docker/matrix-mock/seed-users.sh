@@ -50,12 +50,12 @@ do
       ;;
   esac
 
-  admin_flag=""
+  admin_flag="--no-admin"
   if [ "$role" = "admin" ]; then
     admin_flag="-a"
   fi
 
-  if output=$($REGISTER_USER_BIN -u "$username" -p "$password" $admin_flag -c "$CONFIG_FILE" "$SYNAPSE_URL" 2>&1); then
+  if output=$($REGISTER_USER_BIN -u "$username" -p "$password" $admin_flag -c "$CONFIG_FILE" "$SYNAPSE_URL" </dev/null 2>&1); then
     echo "Seeded user '$username'"
   else
     case "$output" in

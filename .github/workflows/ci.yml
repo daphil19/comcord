@@ -43,16 +43,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+
       - name: Verify Android, JVM, and unit tests
         run: |
           ./gradlew \
-            :composeApp:assembleDebug \
+            :androidApp:assembleDebug \
             :composeApp:compileKotlinJvm \
             :composeApp:compileKotlinJs \
             :composeApp:compileKotlinWasmJs \
             :composeApp:jvmTest \
-            :composeApp:testDebugUnitTest \
-            :composeApp:testReleaseUnitTest
+            :androidApp:testDebugUnitTest \
+            :androidApp:testReleaseUnitTest
 
       - name: Verify JS and Wasm browser tests
         run: |
@@ -106,16 +112,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+
       - name: Build Android release artifacts
-        run: ./gradlew :composeApp:assembleRelease :composeApp:bundleRelease
+        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease
 
       - name: Upload Android release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-release
           path: |
-            composeApp/build/outputs/apk/release/*.apk
-            composeApp/build/outputs/bundle/release/*.aab
+            androidApp/build/outputs/apk/release/*.apk
+            androidApp/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
   release-desktop-native:

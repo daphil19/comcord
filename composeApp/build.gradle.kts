@@ -3,7 +3,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
 }
@@ -18,7 +18,12 @@ kotlin {
             .toInt(),
     )
 
-    androidTarget {
+    android {
+        namespace = "dev.phillipslabs.comcord.shared"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        androidResources.enable = true
+        withHostTestBuilder {}
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)
         }
@@ -80,51 +85,6 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.phillipslabs.comcord"
-    compileSdk =
-        libs.versions.android.compileSdk
-            .get()
-            .toInt()
-
-    defaultConfig {
-        applicationId = "dev.phillipslabs.comcord"
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
-        targetSdk =
-            libs.versions.android.targetSdk
-                .get()
-                .toInt()
-        versionCode = 1
-        versionName = "1.0"
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-        }
-    }
-    lint {
-        checkReleaseBuilds = false
-        abortOnError = false
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}
-
-dependencies {
-    debugImplementation(libs.compose.ui.tooling)
-//    ktlintRuleset(libs.ktlint.compose)
-}
-
 compose.desktop {
     application {
         mainClass = "dev.phillipslabs.comcord.MainKt"
@@ -139,4 +99,10 @@ compose.desktop {
             packageVersion = "1.0.0"
         }
     }
+}
+
+// Keep the ticket's existing debug-build command working after the AGP 9 split.
+tasks.register("assembleDebug") {
+    group = "build"
+    dependsOn(":androidApp:assembleDebug")
 }

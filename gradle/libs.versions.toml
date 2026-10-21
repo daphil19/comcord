@@ -1,28 +1,32 @@
 [versions]
-agp = "8.13.2"
-compose-multiplatform = "1.10.3"
+# Kotlin 2.4.21 documents AGP support through 9.3.1 (newer 9.4.x is held back).
+agp = "9.3.1"
+compose-multiplatform = "1.12.2"
 compose-material3 = "1.9.0"
-kotlin = "2.3.20"
+kotlin = "2.4.21"
 
-android-compileSdk = "36"
+android-compileSdk = "37"
 android-minSdk = "28"
 android-targetSdk = "36"
 androidx-activityCompose = "1.13.0"
-androidx-appcompat = "1.7.1"
-androidx-constraintlayout = "2.2.1"
-androidx-core-ktx = "1.18.0"
-androidx-espresso-core = "3.6.1"
-androidx-lifecycle = "2.9.6"
-androidx-material = "1.12.0"
-androidx-test-junit = "1.2.1"
+androidx-appcompat = "1.8.0"
+androidx-constraintlayout = "2.2.2"
+androidx-core-ktx = "1.19.1"
+androidx-espresso-core = "3.7.0"
+androidx-lifecycle = "2.11.0"
+androidx-material = "1.14.0"
+androidx-test-junit = "1.3.0"
 junit = "4.13.2"
-kotlinx-coroutines = "1.10.2"
+kotlinx-coroutines = "1.11.0"
 jdk = "17"
-ktlint = "1.3.1"
-ktor = "3.4.1"
-decompose = "3.2.2" # https://github.com/arkivanov/Decompose/releases
-copyWebpackPlugin = "13.0.1" # https://github.com/webpack-contrib/copy-webpack-plugin/releases
-kotlinWrappers = "2026.3.10"
+ktlint = "1.8.0"
+# Match trixnity-messenger 4.10.3; Ktor 3.6 is outside its published baseline.
+ktor = "3.5.2"
+decompose = "3.5.0" # https://github.com/arkivanov/Decompose/releases
+copyWebpackPlugin = "14.0.0" # https://github.com/webpack-contrib/copy-webpack-plugin/releases
+# Match Trixnity 4.10.3: newer wrappers remove the IndexedDB createIndex ABI
+# used by its precompiled Wasm libraries (login fails with IrLinkageError).
+kotlinWrappers = "2026.6.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -46,8 +50,8 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "compose-multiplatform" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.4.0" }
-ktlint-compose = "io.nlopez.compose.rules:ktlint:0.4.8"
+trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.10.3" }
+ktlint-compose = "io.nlopez.compose.rules:ktlint:0.6.8"
 #ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 #ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
@@ -63,10 +67,10 @@ kotlin-browser = {group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browse
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-androidLibrary = { id = "com.android.library", version.ref = "agp" }
+androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-gradle-versions = { id = "com.github.ben-manes.versions", version = "0.53.0" }
-ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "12.1.2" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.7" }
+gradle-versions = { id = "com.github.ben-manes.versions", version = "0.66.0" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "14.2.0" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.8" }

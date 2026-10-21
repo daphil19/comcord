@@ -17,6 +17,7 @@ services:
     restart: "no"
     volumes:
       - ./data:/data
+      - ./homeserver.yaml:/data/homeserver.yaml:ro
       - ./seed-users.sh:/seed/seed-users.sh:ro
       - ./users.csv:/seed/users.csv:ro
     entrypoint: ["/bin/sh", "/seed/seed-users.sh"]
