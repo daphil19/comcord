@@ -14,7 +14,7 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 
 ## Verification
 
-- Full build and checks (requires macOS/Xcode and Android SDK): `./gradlew build`
+- Checks/tests, including compilation of their required inputs: `./gradlew check`
 - Desktop compile/package: `./gradlew :composeApp:jvmJar`
 - Desktop run: `./gradlew :composeApp:run`
 - Android: `./gradlew :androidApp:assembleDebug`
@@ -26,7 +26,28 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 - Full tests: `./gradlew :composeApp:allTests`
 - Local homeserver: `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
 
-Run the narrowest relevant check during implementation and all tests at the end.
+Choose the narrowest verification that covers the change: relevant tests/checks,
+affected-platform compilation, or both when needed. For
+documentation or comment-only changes, review the diff and run `git diff --check`;
+no Gradle build is required. Broaden verification only when the change warrants it.
+
+For shared code or toolchain changes, use this cross-platform compilation check
+(requires macOS/Xcode and Android SDK):
+
+```bash
+./gradlew \
+  :composeApp:jvmJar \
+  :androidApp:assembleDebug \
+  :composeApp:compileKotlinJs \
+  :composeApp:compileKotlinWasmJs \
+  :composeApp:linkDebugFrameworkIosSimulatorArm64
+```
+
+Do not run `./gradlew build` for routine agent verification. It also performs
+production web optimization and iOS release linking, which can be very expensive.
+Reserve the full build for explicitly requested release validation. If changing
+production bundling or packaging, run only the relevant production/package tasks.
+
 For toolchain changes, compile every target and verify desktop and Wasm login/sync
 with the local homeserver (`http://localhost:8008`, `alice` / `alicepass`). Report
 checks that could not run; compilation alone does not verify login or IDE indexing.

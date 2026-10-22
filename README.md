@@ -39,6 +39,7 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - Gradle 9.7.0 is Kotlin 2.4.21's documented compatibility ceiling; Gradle 9.8.x is held back.
 - Ktor 3.5.2 matches Trixnity Messenger 4.10.3; coroutines 1.11.0 and Decompose 3.5.0 match its published dependencies.
 - Kotlin wrappers stay on Trixnity's 2026.6.1 baseline: newer wrappers compile but fail Wasm login with an IndexedDB `createIndex` linkage error.
+- `terser-webpack-plugin` is an explicit development dependency because `composeApp/webpack.config.d/trixnity.js` imports it for custom production minification. The webpack upgrade stopped supplying it transitively under that name. It can be removed together with the custom minifier configuration if webpack's default minification produces working JS/Wasm bundles with acceptable build times; the current tuning disables expensive compression passes.
 - Compose Material 3 remains on 1.9.0, the latest stable artifact in its own release line.
 - Java stays on 17; Android minSdk 28 and targetSdk 36 retain the current device support and runtime behavior. Only compileSdk advances to 37 for dependency compatibility.
 - Compatibility bounds: [Kotlin toolchain matrix](https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html). Dependency baselines: [Trixnity Messenger 4.10.3 metadata](https://gitlab.com/api/v4/projects/47538655/packages/maven/de/connect2x/trixnity/messenger/trixnity-messenger/4.10.3/trixnity-messenger-4.10.3.module).
@@ -76,7 +77,7 @@ Reset to a clean state (removes DB + media + users):
 
 ## Useful commands
 
-- Full build and checks (macOS with Xcode and Android SDK): `./gradlew build`
+- Checks/tests (compiles required inputs): `./gradlew check`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
 - Run Desktop app: `./gradlew :composeApp:run`
@@ -88,8 +89,23 @@ Reset to a clean state (removes DB + media + users):
 - Build iOS simulator debug framework: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Run tests: `./gradlew :composeApp:allTests`
 
-`build` also bundles production JS/Wasm and links release iOS frameworks, so it
-checks more than the individual compile commands. Test tasks currently report
+For broad compilation verification without production optimization or iOS release
+linking, use this on macOS with Xcode and the Android SDK:
+
+```bash
+./gradlew \
+  :composeApp:jvmJar \
+  :androidApp:assembleDebug \
+  :composeApp:compileKotlinJs \
+  :composeApp:compileKotlinWasmJs \
+  :composeApp:linkDebugFrameworkIosSimulatorArm64
+```
+
+Use targeted tests/checks and affected-platform compilation for normal development.
+`./gradlew build` is optional full release validation: it also bundles production
+JS/Wasm and links release iOS frameworks, and can take substantially longer. For
+production bundling changes, run the affected production webpack task directly.
+Test tasks currently report
 `NO-SOURCE` or `SKIPPED` because the project has no test sources; verify login and
 sync separately using the steps below.
 

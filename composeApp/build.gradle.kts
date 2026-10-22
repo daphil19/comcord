@@ -78,6 +78,9 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
         }
         webMain.dependencies {
+            // webpack.config.d/trixnity.js explicitly imports this custom production minifier.
+            // Keep it declared directly; remove it with that configuration if default
+            // minification is verified to produce working bundles in acceptable build time.
             implementation(devNpm("terser-webpack-plugin", libs.versions.terserWebpackPlugin.get()))
 //            implementation(npm("copy-webpack-plugin", libs.versions.copyWebpackPlugin.get()))
             implementation(project.dependencies.platform(libs.kotlin.wrappers.bom))
