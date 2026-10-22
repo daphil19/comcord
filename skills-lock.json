@@ -91,6 +91,12 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ac2c94885f34ff8492dc12aa4543182f661f32ea1722b8d6b6c2c7045af33ae3"
     },
+    "kotlin-tooling-native-build-performance": {
+      "source": "Kotlin/kotlin-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/kotlin-tooling-native-build-performance/SKILL.md",
+      "computedHash": "40328f591041c5e1176e3c03bdbe739cb20d0cb95e01f97fa304f8cc5510dbbf"
+    },
     "pr": {
       "source": "mattpocock/skills",
       "sourceType": "github",
