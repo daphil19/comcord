@@ -56,6 +56,8 @@ jobs:
             :composeApp:compileKotlinJvm \
             :composeApp:compileKotlinJs \
             :composeApp:compileKotlinWasmJs \
+            :composeApp:jsBrowserProductionWebpack \
+            :composeApp:wasmJsBrowserProductionWebpack \
             :composeApp:jvmTest \
             :androidApp:testDebugUnitTest \
             :androidApp:testReleaseUnitTest

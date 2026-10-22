@@ -14,6 +14,7 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 
 ## Verification
 
+- Full build and checks (requires macOS/Xcode and Android SDK): `./gradlew build`
 - Desktop compile/package: `./gradlew :composeApp:jvmJar`
 - Desktop run: `./gradlew :composeApp:run`
 - Android: `./gradlew :androidApp:assembleDebug`

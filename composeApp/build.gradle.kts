@@ -78,6 +78,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
         }
         webMain.dependencies {
+            implementation(devNpm("terser-webpack-plugin", libs.versions.terserWebpackPlugin.get()))
 //            implementation(npm("copy-webpack-plugin", libs.versions.copyWebpackPlugin.get()))
             implementation(project.dependencies.platform(libs.kotlin.wrappers.bom))
             implementation(libs.kotlin.browser)

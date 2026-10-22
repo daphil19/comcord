@@ -76,6 +76,7 @@ Reset to a clean state (removes DB + media + users):
 
 ## Useful commands
 
+- Full build and checks (macOS with Xcode and Android SDK): `./gradlew build`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
 - Run Desktop app: `./gradlew :composeApp:run`
@@ -86,6 +87,11 @@ Reset to a clean state (removes DB + media + users):
 - Refresh web locks after dependency changes: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
 - Build iOS simulator debug framework: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Run tests: `./gradlew :composeApp:allTests`
+
+`build` also bundles production JS/Wasm and links release iOS frameworks, so it
+checks more than the individual compile commands. Test tasks currently report
+`NO-SOURCE` or `SKIPPED` because the project has no test sources; verify login and
+sync separately using the steps below.
 
 ## Local login and sync check
 
