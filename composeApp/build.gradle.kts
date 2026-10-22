@@ -1,5 +1,8 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
+import java.lang.module.ModuleFinder.compose
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -20,8 +23,14 @@ kotlin {
 
     android {
         namespace = "dev.phillipslabs.comcord.shared"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk =
+            libs.versions.android.compileSdk
+                .get()
+                .toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         androidResources.enable = true
         withHostTestBuilder {}
         compilerOptions {
