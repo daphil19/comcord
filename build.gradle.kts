@@ -30,8 +30,8 @@ tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
     gradleReleaseChannel = "current"
 }
 
-tasks.register("verifyDev") {
-    group = "verification"
+val assembleDev by tasks.registering {
+    group = "build"
     description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
     dependsOn(
         ":composeApp:jvmJar",
@@ -40,4 +40,10 @@ tasks.register("verifyDev") {
         ":composeApp:compileKotlinWasmJs",
         ":composeApp:linkDebugFrameworkIosSimulatorArm64",
     )
+}
+
+tasks.register("buildDev") {
+    group = "build"
+    description = "Assembles development artifacts and runs both modules' checks and tests."
+    dependsOn(assembleDev, ":composeApp:check", ":androidApp:check")
 }

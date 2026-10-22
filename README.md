@@ -77,7 +77,8 @@ Reset to a clean state (removes DB + media + users):
 
 ## Useful commands
 
-- Everyday cross-platform compilation: `./gradlew verifyDev` (macOS, Xcode, Android SDK)
+- Everyday checks, tests, and cross-platform compilation: `./gradlew buildDev` (macOS, Xcode, Android SDK)
+- Cross-platform compilation only: `./gradlew assembleDev` (same requirements)
 - Checks/tests (compiles required inputs): `./gradlew check`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
@@ -90,17 +91,21 @@ Reset to a clean state (removes DB + media + users):
 - Build iOS simulator debug framework: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Run tests: `./gradlew :composeApp:allTests`
 
-For everyday cross-platform compilation, use this on macOS with Xcode and the
-Android SDK:
+For everyday checks, tests, and cross-platform compilation, use this on macOS
+with Xcode and the Android SDK:
 
 ```bash
-./gradlew verifyDev
+./gradlew buildDev
 ```
 
-`verifyDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
-and the Apple Silicon iOS simulator debug framework. It skips production web
-bundling and iOS release linking. It does not run tests, launch apps, or compile
-the Swift iOS wrapper; use Xcode to verify the complete iOS app.
+`assembleDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
+and the Apple Silicon iOS simulator debug framework. `buildDev` combines
+`assembleDev` with both modules' `check` tasks (including their configured tests).
+Both skip production web bundling and iOS release linking. Use `./gradlew check`
+to run just checks and tests with their required compilation. Browser and iOS
+tests may require a browser and an available iOS simulator once test sources are
+added. These tasks do not launch the app or compile the Swift iOS wrapper; use
+Xcode to verify the complete iOS app.
 
 Use targeted tests/checks and affected-platform compilation for normal development.
 `./gradlew build` is optional full release validation: it also bundles production

@@ -14,7 +14,8 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 
 ## Verification
 
-- Everyday cross-platform compilation: `./gradlew verifyDev` (macOS, Xcode, Android SDK)
+- Everyday checks, tests, and cross-platform compilation: `./gradlew buildDev` (macOS, Xcode, Android SDK)
+- Cross-platform compilation only: `./gradlew assembleDev` (same requirements)
 - Checks/tests, including compilation of their required inputs: `./gradlew check`
 - Desktop compile/package: `./gradlew :composeApp:jvmJar`
 - Desktop run: `./gradlew :composeApp:run`
@@ -32,11 +33,14 @@ affected-platform compilation, or both when needed. For
 documentation or comment-only changes, review the diff and run `git diff --check`;
 no Gradle build is required. Broaden verification only when the change warrants it.
 
-For shared code or toolchain changes, use `./gradlew verifyDev`. It builds the
-desktop JAR, Android debug APK, JS and Wasm Kotlin code, and the Apple Silicon
-iOS simulator debug framework, without production web bundling or iOS release
-linking. It requires macOS/Xcode and the Android SDK. Run relevant tests separately;
-this task does not run tests, launch apps, or compile the Swift iOS wrapper.
+For shared code or toolchain changes, use `./gradlew buildDev`. It combines
+`assembleDev` with both modules' `check` tasks (including configured tests).
+`assembleDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
+and the Apple Silicon iOS simulator debug framework. Both avoid production web
+bundling and iOS release linking and require macOS/Xcode and the Android SDK.
+Browser and iOS tests may also need a browser and an available iOS simulator.
+These tasks do not launch the app or compile the Swift iOS wrapper. Use
+`./gradlew check` for checks/tests alone.
 
 Do not run `./gradlew build` for routine agent verification. It also performs
 production web optimization and iOS release linking, which can be very expensive.
