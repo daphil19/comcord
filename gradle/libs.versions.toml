@@ -1,6 +1,6 @@
 [versions]
 # Kotlin 2.4.21 documents AGP support through 9.3.1 (newer 9.4.x is held back).
-agp = "9.3.1"
+agp = "9.1.0" # latest supported version in intellij
 compose-multiplatform = "1.12.2"
 compose-material3 = "1.9.0"
 kotlin = "2.4.21"
@@ -72,6 +72,6 @@ androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.r
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-gradle-versions = { id = "com.github.ben-manes.versions", version = "0.66.0" }
+gradle-versions = { id = "io.github.ben-manes.versions", version = "0.66.0" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "14.2.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.8" }
