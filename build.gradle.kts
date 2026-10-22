@@ -29,3 +29,15 @@ tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
     // don't look at gradle rc versions either
     gradleReleaseChannel = "current"
 }
+
+tasks.register("verifyDev") {
+    group = "verification"
+    description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
+    dependsOn(
+        ":composeApp:jvmJar",
+        ":androidApp:assembleDebug",
+        ":composeApp:compileKotlinJs",
+        ":composeApp:compileKotlinWasmJs",
+        ":composeApp:linkDebugFrameworkIosSimulatorArm64",
+    )
+}

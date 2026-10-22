@@ -77,6 +77,7 @@ Reset to a clean state (removes DB + media + users):
 
 ## Useful commands
 
+- Everyday cross-platform compilation: `./gradlew verifyDev` (macOS, Xcode, Android SDK)
 - Checks/tests (compiles required inputs): `./gradlew check`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
@@ -89,17 +90,17 @@ Reset to a clean state (removes DB + media + users):
 - Build iOS simulator debug framework: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Run tests: `./gradlew :composeApp:allTests`
 
-For broad compilation verification without production optimization or iOS release
-linking, use this on macOS with Xcode and the Android SDK:
+For everyday cross-platform compilation, use this on macOS with Xcode and the
+Android SDK:
 
 ```bash
-./gradlew \
-  :composeApp:jvmJar \
-  :androidApp:assembleDebug \
-  :composeApp:compileKotlinJs \
-  :composeApp:compileKotlinWasmJs \
-  :composeApp:linkDebugFrameworkIosSimulatorArm64
+./gradlew verifyDev
 ```
+
+`verifyDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
+and the Apple Silicon iOS simulator debug framework. It skips production web
+bundling and iOS release linking. It does not run tests, launch apps, or compile
+the Swift iOS wrapper; use Xcode to verify the complete iOS app.
 
 Use targeted tests/checks and affected-platform compilation for normal development.
 `./gradlew build` is optional full release validation: it also bundles production
