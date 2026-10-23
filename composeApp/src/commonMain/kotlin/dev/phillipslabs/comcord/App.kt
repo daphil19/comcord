@@ -75,7 +75,7 @@ fun App(
             when (route) {
                 is RootRouter.Wrapper.AddMatrixAccount -> AddMatrixAccountScreen(route.viewModel)
                 is RootRouter.Wrapper.PasswordLogin -> PasswordLoginScreen(route.viewModel)
-                is RootRouter.Wrapper.Main -> AccountHost(matrixMessenger)
+                is RootRouter.Wrapper.Main -> ActiveAccountScreen(matrixMessenger)
                 else -> CenterStatus(routeStatus(route))
             }
         }
@@ -203,7 +203,7 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 }
 
 @Composable
-private fun AccountHost(matrixMessenger: MatrixMessenger) {
+private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
     val sources = remember(matrixMessenger) { matrixMessenger.accountSources() }
     val source by sources.collectAsState(initial = null)
     val accountSource = source
