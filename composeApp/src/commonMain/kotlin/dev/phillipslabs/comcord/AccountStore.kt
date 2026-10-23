@@ -9,13 +9,16 @@ import kotlinx.coroutines.launch
 data class AccountState(
     val accountId: String,
     val directory: RoomDirectoryState = emptyRoomDirectory(),
-    val selectedGuildId: String = ALL_ROOMS_GUILD_ID,
+    val selectedServerId: String = ALL_ROOMS_VIEW_ID,
     val selectedRoomId: String? = null,
+    val collapsedCategoryIds: Set<String> = emptySet(),
 ) {
-    val rooms: List<RoomUi> get() = directory.roomsByGuild[selectedGuildId].orEmpty()
-    val selectedRoom: RoomUi? get() =
-        directory.roomsByGuild.values
-            .flatten()
+    val categories: List<CategoryUi> get() = directory.categoriesByServer[selectedServerId].orEmpty()
+    val uncategorizedChannels: List<ChannelUi> get() = directory.channelsByServer[selectedServerId].orEmpty()
+    val rooms: List<ChannelUi> get() = uncategorizedChannels + categories.flatMap { it.channels }
+    val selectedRoom: ChannelUi? get() =
+        directory.channelsByServer
+            .getValue(ALL_ROOMS_VIEW_ID)
             .firstOrNull { it.id == selectedRoomId }
 }
 
@@ -29,16 +32,17 @@ class AccountStore(
 
     init {
         scope.launch {
-            source.directory.collect { directory ->
+            source.directory.collect { snapshot ->
+                val directory = snapshot.projectDirectory()
                 mutableState.update { current ->
                     current.copy(
                         directory = directory,
-                        selectedGuildId =
-                            current.selectedGuildId.takeIf { id -> directory.guilds.any { it.id == id } }
-                                ?: ALL_ROOMS_GUILD_ID,
+                        selectedServerId =
+                            current.selectedServerId.takeIf { id -> directory.servers.any { it.id == id } }
+                                ?: ALL_ROOMS_VIEW_ID,
                         selectedRoomId =
                             current.selectedRoomId.takeIf { id ->
-                                directory.roomsByGuild.values.any { rooms -> rooms.any { it.id == id } }
+                                directory.channelsByServer.values.any { rooms -> rooms.any { it.id == id } }
                             },
                     )
                 }
@@ -46,15 +50,38 @@ class AccountStore(
         }
     }
 
-    fun selectGuild(id: String) {
+    fun selectServer(id: String) {
         mutableState.update { current ->
-            if (current.directory.guilds.any { it.id == id }) current.copy(selectedGuildId = id) else current
+            if (id == ALL_ROOMS_VIEW_ID ||
+                current.directory.servers.any { it.id == id }
+            ) {
+                current.copy(selectedServerId = id)
+            } else {
+                current
+            }
         }
     }
 
     fun selectRoom(id: String) {
         mutableState.update { current ->
             if (current.rooms.any { it.id == id }) current.copy(selectedRoomId = id) else current
+        }
+    }
+
+    fun toggleCategory(id: String) {
+        mutableState.update { current ->
+            if (current.categories.none { it.id == id }) {
+                current
+            } else {
+                current.copy(
+                    collapsedCategoryIds =
+                        if (id in current.collapsedCategoryIds) {
+                            current.collapsedCategoryIds - id
+                        } else {
+                            current.collapsedCategoryIds + id
+                        },
+                )
+            }
         }
     }
 

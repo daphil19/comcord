@@ -20,17 +20,16 @@ class AccountStoreTest {
             val store = AccountStore(source, backgroundScope)
             runCurrent()
 
-            source.emitDirectory(
-                RoomDirectoryState(
-                    guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
-                    roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to listOf(RoomUi("!lobby:localhost", "Lobby"))),
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels = listOf(ChannelUi("!lobby:localhost", "Lobby")),
                     syncStateLabel = "Synced",
                 ),
             )
             runCurrent()
 
             assertEquals("@alice:localhost", store.state.value.accountId)
-            assertEquals(listOf(RoomUi("!lobby:localhost", "Lobby")), store.state.value.rooms)
+            assertEquals(listOf(ChannelUi("!lobby:localhost", "Lobby")), store.state.value.rooms)
             assertEquals("Synced", store.state.value.directory.syncStateLabel)
         }
 
@@ -39,7 +38,7 @@ class AccountStoreTest {
         runTest {
             val source = FakeMatrixSource("@alice:localhost")
             val store = AccountStore(source, backgroundScope)
-            source.emitDirectory(directory(RoomUi("!one:localhost", "Lobby"), RoomUi("!two:localhost", "Lobby")))
+            source.emitSnapshot(directory(ChannelUi("!one:localhost", "Lobby"), ChannelUi("!two:localhost", "Lobby")))
             runCurrent()
             store.selectRoom("!two:localhost")
             assertEquals(
@@ -48,14 +47,14 @@ class AccountStoreTest {
                     ?.id,
             )
 
-            source.emitDirectory(directory(RoomUi("!two:localhost", "Renamed")))
+            source.emitSnapshot(directory(ChannelUi("!two:localhost", "Renamed")))
             runCurrent()
             assertEquals(
                 "Renamed",
                 store.state.value.selectedRoom
                     ?.name,
             )
-            source.emitDirectory(directory())
+            source.emitSnapshot(directory())
             runCurrent()
             assertNull(store.state.value.selectedRoomId)
         }
@@ -67,8 +66,8 @@ class AccountStoreTest {
             val bob = FakeMatrixSource("@bob:localhost")
             val aliceStore = AccountStore(alice, backgroundScope)
             val bobStore = AccountStore(bob, backgroundScope)
-            alice.emitDirectory(directory(RoomUi("!one:localhost", "Alice's room")))
-            bob.emitDirectory(directory(RoomUi("!two:localhost", "Bob's room")))
+            alice.emitSnapshot(directory(ChannelUi("!one:localhost", "Alice's room")))
+            bob.emitSnapshot(directory(ChannelUi("!two:localhost", "Bob's room")))
             runCurrent()
             aliceStore.selectRoom("!one:localhost")
             aliceStore.logout()
@@ -84,23 +83,23 @@ class AccountStoreTest {
         }
 
     @Test
-    fun removedGuildFallsBackToAllRoomsAndUnknownSelectionsAreIgnored() =
+    fun removedServerFallsBackToAllRoomsAndUnknownSelectionsAreIgnored() =
         runTest {
             val source = FakeMatrixSource("@alice:localhost")
             val store = AccountStore(source, backgroundScope)
-            source.emitDirectory(
+            source.emitSnapshot(
                 directory().copy(
-                    guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms"), GuildUi("!space", "Space")),
+                    spaces = listOf(SpaceSnapshot("!space", "Space")),
                 ),
             )
             runCurrent()
-            store.selectGuild("!space")
-            assertEquals("!space", store.state.value.selectedGuildId)
-            source.emitDirectory(directory())
+            store.selectServer("!space")
+            assertEquals("!space", store.state.value.selectedServerId)
+            source.emitSnapshot(directory())
             runCurrent()
-            store.selectGuild("unknown")
+            store.selectServer("unknown")
             store.selectRoom("unknown")
-            assertEquals(ALL_ROOMS_GUILD_ID, store.state.value.selectedGuildId)
+            assertEquals(ALL_ROOMS_VIEW_ID, store.state.value.selectedServerId)
             assertNull(store.state.value.selectedRoomId)
         }
 
@@ -113,15 +112,164 @@ class AccountStoreTest {
             val store = AccountStore(source, accountScope)
             runCurrent()
             accountScope.cancel()
-            source.emitDirectory(directory(RoomUi("!late:localhost", "Late update")))
+            source.emitSnapshot(directory(ChannelUi("!late:localhost", "Late update")))
             runCurrent()
             assertEquals(emptyList(), store.state.value.rooms)
         }
 
-    private fun directory(vararg rooms: RoomUi) =
-        RoomDirectoryState(
-            guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
-            roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to rooms.toList()),
+    @Test
+    fun joinedSubspaceIsACategoryWithNestedChannels() =
+        runTest {
+            val source = FakeMatrixSource("@alice:localhost")
+            val store = AccountStore(source, backgroundScope)
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels = listOf(ChannelUi("channel", "General")),
+                    spaces =
+                        listOf(
+                            SpaceSnapshot("server", "Server", listOf(SpaceChild("category"))),
+                            SpaceSnapshot("category", "Category", listOf(SpaceChild("deep"))),
+                            SpaceSnapshot("deep", "Deep", listOf(SpaceChild("channel"))),
+                        ),
+                ),
+            )
+            runCurrent()
+            assertEquals(
+                listOf("server"),
+                store.state.value.directory.servers
+                    .map { it.id },
+            )
+            store.selectServer("server")
+            assertEquals(
+                listOf("channel"),
+                store.state.value.categories
+                    .single()
+                    .channels
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun channelsFollowChildOrderThenNameAndAppearInEachServer() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels =
+                        listOf(
+                            ChannelUi("a", "Alpha"),
+                            ChannelUi("b", "Beta"),
+                            ChannelUi("c", "Charlie"),
+                            ChannelUi("d", "Delta"),
+                        ),
+                    spaces =
+                        listOf(
+                            SpaceSnapshot(
+                                "one",
+                                "One",
+                                listOf(
+                                    SpaceChild("a"),
+                                    SpaceChild("c", "0"),
+                                    SpaceChild("b", "0"),
+                                    SpaceChild("d", "\n"),
+                                ),
+                            ),
+                            SpaceSnapshot("two", "Two", listOf(SpaceChild("b"))),
+                        ),
+                ),
+            )
+            runCurrent()
+            store.selectServer("one")
+            assertEquals(
+                listOf("b", "c", "a", "d"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            store.selectServer("two")
+            assertEquals(
+                listOf("b"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun cyclesAndRepeatedDescendantsTerminateWithoutDuplicatingChannels() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels = listOf(ChannelUi("direct", "Direct"), ChannelUi("nested", "Nested")),
+                    spaces =
+                        listOf(
+                            SpaceSnapshot("root", "Root", listOf(SpaceChild("direct"), SpaceChild("category"))),
+                            SpaceSnapshot(
+                                "category",
+                                "Category",
+                                listOf(SpaceChild("deep"), SpaceChild("nested"), SpaceChild("direct")),
+                            ),
+                            SpaceSnapshot("deep", "Deep", listOf(SpaceChild("category"), SpaceChild("nested"))),
+                            SpaceSnapshot("isolated-loop", "Loop", listOf(SpaceChild("isolated-loop"))),
+                        ),
+                ),
+            )
+            runCurrent()
+            store.selectServer("root")
+            assertEquals(
+                listOf("root"),
+                store.state.value.directory.servers
+                    .map { it.id },
+            )
+            assertEquals(
+                listOf("direct", "nested"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            assertEquals(
+                listOf("nested"),
+                store.state.value.categories
+                    .single()
+                    .channels
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun categoryCollapseSurvivesServerSwitchesAndSyncButStaysWithItsAccount() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            val otherAccount = AccountStore(FakeMatrixSource("bob"), backgroundScope)
+            val snapshot =
+                MatrixDirectory(
+                    spaces =
+                        listOf(
+                            SpaceSnapshot("one", "One", listOf(SpaceChild("category"))),
+                            SpaceSnapshot("category", "Category"),
+                            SpaceSnapshot("two", "Two"),
+                        ),
+                )
+            source.emitSnapshot(snapshot)
+            runCurrent()
+            store.selectServer("one")
+            store.toggleCategory("category")
+            store.selectServer("two")
+            store.selectServer("one")
+            source.emitSnapshot(snapshot.copy(syncStateLabel = "Synced"))
+            runCurrent()
+            assertEquals("one", store.state.value.selectedServerId)
+            assertEquals(setOf("category"), store.state.value.collapsedCategoryIds)
+            assertEquals(emptySet(), otherAccount.state.value.collapsedCategoryIds)
+            store.toggleCategory("unknown")
+            store.toggleCategory("category")
+            assertEquals(emptySet(), store.state.value.collapsedCategoryIds)
+        }
+
+    private fun directory(vararg rooms: ChannelUi) =
+        MatrixDirectory(
+            channels = rooms.toList(),
             syncStateLabel = "Synced",
         )
 }

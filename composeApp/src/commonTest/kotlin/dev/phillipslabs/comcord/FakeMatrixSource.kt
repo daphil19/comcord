@@ -6,12 +6,12 @@ import kotlinx.coroutines.flow.asStateFlow
 class FakeMatrixSource(
     override val accountId: String,
 ) : MatrixSource {
-    private val mutableDirectory = MutableStateFlow(emptyRoomDirectory())
+    private val mutableDirectory = MutableStateFlow(MatrixDirectory())
     override val directory = mutableDirectory.asStateFlow()
     var loggedOut = false
         private set
 
-    fun emitDirectory(directory: RoomDirectoryState) {
+    fun emitSnapshot(directory: MatrixDirectory) {
         mutableDirectory.value = directory
     }
 

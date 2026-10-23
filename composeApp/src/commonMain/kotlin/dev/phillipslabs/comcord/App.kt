@@ -51,7 +51,7 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewMod
 import kotlinx.coroutines.flow.StateFlow
 
 private val AppBg = Color(0xFF1A1D24)
-private val GuildRailBg = Color(0xFF12141A)
+private val ServerRailBg = Color(0xFF12141A)
 private val ChannelPanelBg = Color(0xFF21252E)
 private val ChatPanelBg = Color(0xFF2A2E38)
 private val ComposerBg = Color(0xFF3A3F4B)
@@ -230,29 +230,33 @@ private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
 private fun MainShell(store: AccountStore) {
     val state by store.state.collectAsState()
     val roomDirectory = state.directory
-    val roomsForGuild = state.rooms
+    val roomsForServer = state.rooms
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compact = maxWidth < 900.dp
 
         Row(modifier = Modifier.fillMaxSize()) {
-            GuildRail(
+            ServerRail(
                 compact = compact,
-                guilds = roomDirectory.guilds,
-                selectedGuildId = state.selectedGuildId,
-                onSelectGuild = store::selectGuild,
+                servers = listOf(ServerUi(ALL_ROOMS_VIEW_ID, "All Rooms")) + roomDirectory.servers,
+                selectedServerId = state.selectedServerId,
+                onSelectServer = store::selectServer,
                 onLogout = store::logout,
             )
             if (!compact) {
                 ChannelPanel(
                     status = roomDirectory.syncStateLabel,
-                    channels = roomsForGuild,
+                    name = roomDirectory.servers.firstOrNull { it.id == state.selectedServerId }?.name ?: "All Rooms",
+                    channels = state.uncategorizedChannels,
+                    categories = state.categories,
+                    collapsedCategoryIds = state.collapsedCategoryIds,
+                    onToggleCategory = store::toggleCategory,
                     selectedRoomId = state.selectedRoomId,
                     onSelectRoom = { store.selectRoom(it.id) },
                 )
             }
             ChatPanel(
-                selectedChannel = state.selectedRoom?.name ?: "Select a room",
-                roomsCount = roomsForGuild.size,
+                selectedChannel = state.selectedRoom?.name ?: "Select a Channel",
+                roomsCount = roomsForServer.size,
                 syncStateLabel = roomDirectory.syncStateLabel,
             )
         }
@@ -260,11 +264,11 @@ private fun MainShell(store: AccountStore) {
 }
 
 @Composable
-private fun GuildRail(
+private fun ServerRail(
     compact: Boolean,
-    guilds: List<GuildUi>,
-    selectedGuildId: String,
-    onSelectGuild: (String) -> Unit,
+    servers: List<ServerUi>,
+    selectedServerId: String,
+    onSelectServer: (String) -> Unit,
     onLogout: () -> Unit,
 ) {
     Column(
@@ -272,21 +276,27 @@ private fun GuildRail(
             Modifier
                 .fillMaxHeight()
                 .width(if (compact) 56.dp else 72.dp)
-                .background(GuildRailBg)
+                .background(ServerRailBg)
                 .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        guilds.forEach { guild ->
-            val label = guild.name.take(2).uppercase()
-            GuildDot(
+        servers.forEach { server ->
+            val label =
+                server.name
+                    .split(' ')
+                    .filter { it.isNotBlank() }
+                    .take(2)
+                    .joinToString("") { it.take(1) }
+                    .uppercase()
+            ServerDot(
                 label = label,
-                active = guild.id == selectedGuildId,
-                onClick = { onSelectGuild(guild.id) },
+                active = server.id == selectedServerId,
+                onClick = { onSelectServer(server.id) },
             )
         }
         Spacer(Modifier.weight(1f))
-        GuildDot(
+        ServerDot(
             label = "LO",
             active = false,
             onClick = onLogout,
@@ -295,7 +305,7 @@ private fun GuildRail(
 }
 
 @Composable
-private fun GuildDot(
+private fun ServerDot(
     label: String,
     active: Boolean,
     onClick: () -> Unit,
@@ -316,9 +326,13 @@ private fun GuildDot(
 @Composable
 private fun ChannelPanel(
     status: String,
-    channels: List<RoomUi>,
+    name: String,
+    channels: List<ChannelUi>,
+    categories: List<CategoryUi>,
+    collapsedCategoryIds: Set<String>,
+    onToggleCategory: (String) -> Unit,
     selectedRoomId: String?,
-    onSelectRoom: (RoomUi) -> Unit,
+    onSelectRoom: (ChannelUi) -> Unit,
 ) {
     Column(
         modifier =
@@ -328,11 +342,10 @@ private fun ChannelPanel(
                 .background(ChannelPanelBg)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Text("Comcord", color = TextStrong, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text(name, color = TextStrong, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
         StatusBadge(status)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("ROOMS", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
 
         LazyColumn(
@@ -347,6 +360,29 @@ private fun ChannelPanel(
                     selected = selectedRoomId == channel.id,
                     onClick = { onSelectRoom(channel) },
                 )
+            }
+            categories.forEach { category ->
+                item(key = "category:${category.id}") {
+                    val collapsed = category.id in collapsedCategoryIds
+                    Text(
+                        text = "${if (collapsed) "▸" else "▾"} ${category.name}",
+                        color = TextMuted,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onToggleCategory(
+                                        category.id,
+                                    )
+                                }.padding(vertical = 8.dp),
+                    )
+                }
+                if (category.id !in collapsedCategoryIds) {
+                    items(category.channels.size) { index ->
+                        val channel = category.channels[index]
+                        ChannelRow(channel.name, selectedRoomId == channel.id) { onSelectRoom(channel) }
+                    }
+                }
             }
         }
     }

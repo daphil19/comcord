@@ -6,10 +6,9 @@ import de.connect2x.trixnity.client.room
 import de.connect2x.trixnity.client.room.getAllState
 import de.connect2x.trixnity.client.store.Room
 import de.connect2x.trixnity.clientserverapi.client.SyncState
-import de.connect2x.trixnity.core.model.RoomId
 import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent.RoomType
 import de.connect2x.trixnity.core.model.events.m.room.Membership
-import de.connect2x.trixnity.core.model.events.m.space.ParentEventContent
+import de.connect2x.trixnity.core.model.events.m.space.ChildEventContent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -18,7 +17,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalCoroutinesApi::class)
-internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirectoryState> {
+internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<MatrixDirectory> {
     val syncLabelFlow =
         matrixClient.syncState.map { syncState ->
             when (syncState) {
@@ -38,40 +37,22 @@ internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirector
             .map { rooms -> rooms.toList() }
 
     return roomsFlow.flatMapLatest { rooms ->
-        val activeRooms = rooms.filter { it.membership == Membership.JOIN || it.membership == Membership.INVITE }
-        val spaces = activeRooms.filter { it.createEventContent?.type == RoomType.Space }
-        val roomsWithoutSpaces = activeRooms.filter { it.createEventContent?.type != RoomType.Space }
-
-        val parentLookupFlow = observeParentLookup(matrixClient, roomsWithoutSpaces)
-
-        combine(parentLookupFlow, syncLabelFlow) { parentLookup, syncLabel ->
-            val guilds =
-                buildList {
-                    add(GuildUi(id = ALL_ROOMS_GUILD_ID, name = "All Rooms"))
-                    addAll(
-                        spaces
-                            .sortedBy { it.displayName() }
-                            .map { space -> GuildUi(id = space.roomId.full, name = space.displayName()) },
-                    )
-                }
-
-            val spaceIds = spaces.map { it.roomId.full }.toSet()
-            val roomsByGuild = mutableMapOf<String, MutableList<RoomUi>>()
-            guilds.forEach { guild -> roomsByGuild[guild.id] = mutableListOf() }
-
-            roomsWithoutSpaces.sortedBy { it.displayName() }.forEach { room ->
-                val roomUi = RoomUi(id = room.roomId.full, name = room.displayName())
-                roomsByGuild.getOrPut(ALL_ROOMS_GUILD_ID) { mutableListOf() }.add(roomUi)
-
-                val parentGuildIds = parentLookup[room.roomId].orEmpty().filter { spaceIds.contains(it) }
-                parentGuildIds.forEach { parentGuildId ->
-                    roomsByGuild.getOrPut(parentGuildId) { mutableListOf() }.add(roomUi)
-                }
-            }
-
-            RoomDirectoryState(
-                guilds = guilds,
-                roomsByGuild = roomsByGuild.mapValues { it.value.toList() },
+        val joinedRooms = rooms.filter { it.membership == Membership.JOIN }
+        val spaces = joinedRooms.filter { it.createEventContent?.type == RoomType.Space }
+        combine(observeChildren(matrixClient, spaces), syncLabelFlow) { children, syncLabel ->
+            MatrixDirectory(
+                channels =
+                    joinedRooms
+                        .filter { it.createEventContent?.type != RoomType.Space && !it.isDirect }
+                        .map { ChannelUi(it.roomId.full, it.displayName()) },
+                spaces =
+                    spaces.map {
+                        SpaceSnapshot(
+                            it.roomId.full,
+                            it.displayName(),
+                            children[it.roomId.full].orEmpty(),
+                        )
+                    },
                 syncStateLabel = syncLabel,
             )
         }
@@ -79,40 +60,30 @@ internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirector
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-private fun observeParentLookup(
+private fun observeChildren(
     matrixClient: MatrixClient,
-    roomsWithoutSpaces: List<Room>,
-): Flow<Map<RoomId, Set<String>>> =
-    if (roomsWithoutSpaces.isEmpty()) {
+    spaces: List<Room>,
+): Flow<Map<String, List<SpaceChild>>> =
+    if (spaces.isEmpty()) {
         flowOf(emptyMap())
     } else {
         combine(
-            roomsWithoutSpaces.map { room ->
-                matrixClient.room
-                    .getAllState<ParentEventContent>(room.roomId)
-                    .flatMapLatest { byStateKey ->
-                        val stateByKey = byStateKey.orEmpty()
-                        if (stateByKey.isEmpty()) {
-                            flowOf(room.roomId to emptySet())
-                        } else {
-                            combine(
-                                stateByKey.map { (stateKey, stateFlow) ->
-                                    stateFlow.map { stateEvent -> stateKey to stateEvent }
-                                },
-                            ) { stateEntries ->
-                                val parentIds =
-                                    stateEntries
-                                        .mapNotNull { (stateKey, stateEvent) ->
-                                            if (stateEvent == null) null else stateKey
-                                        }.toSet()
-                                room.roomId to parentIds
-                            }
-                        }
+            spaces.map { space ->
+                matrixClient.room.getAllState<ChildEventContent>(space.roomId).flatMapLatest { states ->
+                    if (states.isNullOrEmpty()) {
+                        flowOf(space.roomId.full to emptyList())
+                    } else {
+                        combine(
+                            states.map { (id, event) ->
+                                event.map { state ->
+                                    state?.content?.takeIf { it.via.isNotEmpty() }?.let { SpaceChild(id, it.order) }
+                                }
+                            },
+                        ) { links -> space.roomId.full to links.filterNotNull() }
                     }
+                }
             },
-        ) { parentEntries -> parentEntries.toMap() }
+        ) { it.toMap() }
     }
 
-private fun Room.displayName(): String =
-    name?.explicitName?.takeIf { it.isNotBlank() }
-        ?: roomId.full
+private fun Room.displayName(): String = name?.explicitName?.takeIf { it.isNotBlank() } ?: roomId.full

@@ -1,8 +1,13 @@
 package dev.phillipslabs.comcord
 
+import de.connect2x.trixnity.client.MatrixClient
 import de.connect2x.trixnity.clientserverapi.client.MatrixClientAuthProviderData
 import de.connect2x.trixnity.clientserverapi.client.classicLoginWithPassword
 import de.connect2x.trixnity.clientserverapi.model.authentication.IdentifierType
+import de.connect2x.trixnity.core.model.RoomId
+import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent
+import de.connect2x.trixnity.core.model.events.m.space.ChildEventContent
+import de.connect2x.trixnity.core.model.events.m.space.ParentEventContent
 import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
 import de.connect2x.trixnity.messenger.multi.create
@@ -60,21 +65,12 @@ class TrixnityMatrixSourceSmokeTest {
                                 client.api.room
                                     .createRoom(name = "Smoke Lobby")
                                     .getOrThrow()
+                            val serverId = createHierarchy(client, roomId)
                             // There is no SDK MainViewModel in this fixture to start sync.
                             client.startSync()
                             val source = messenger.accountSources().first { it != null }!!
                             assertEquals("@alice:localhost", source.accountId)
-                            val directory =
-                                source.directory.first { state ->
-                                    state.roomsByGuild[ALL_ROOMS_GUILD_ID].orEmpty().any { it.id == roomId.full }
-                                }
-                            assertEquals(
-                                "Smoke Lobby",
-                                directory.roomsByGuild
-                                    .getValue(ALL_ROOMS_GUILD_ID)
-                                    .single()
-                                    .name,
-                            )
+                            assertHierarchy(source, serverId, roomId)
                             source.logout().getOrThrow()
                             assertTrue(clients.value.isEmpty())
                         }
@@ -86,4 +82,74 @@ class TrixnityMatrixSourceSmokeTest {
                 }
             }
         }
+
+    private suspend fun createHierarchy(
+        client: MatrixClient,
+        roomId: RoomId,
+    ): RoomId {
+        val serverId =
+            client.api.room
+                .createRoom(
+                    name = "Smoke Server",
+                    creationContent = CreateEventContent(type = CreateEventContent.RoomType.Space),
+                ).getOrThrow()
+        val categoryId =
+            client.api.room
+                .createRoom(
+                    name = "Smoke Category",
+                    creationContent = CreateEventContent(type = CreateEventContent.RoomType.Space),
+                ).getOrThrow()
+        client.api.room
+            .sendStateEvent(
+                serverId,
+                ChildEventContent(via = setOf("localhost")),
+                categoryId.full,
+            ).getOrThrow()
+        client.api.room
+            .sendStateEvent(
+                categoryId,
+                ChildEventContent(via = setOf("localhost")),
+                roomId.full,
+            ).getOrThrow()
+        val parentOnly =
+            client.api.room
+                .createRoom(name = "Parent only")
+                .getOrThrow()
+        client.api.room
+            .sendStateEvent(
+                parentOnly,
+                ParentEventContent(via = setOf("localhost")),
+                serverId.full,
+            ).getOrThrow()
+        return serverId
+    }
+
+    private suspend fun assertHierarchy(
+        source: MatrixSource,
+        serverId: RoomId,
+        roomId: RoomId,
+    ) {
+        val directory =
+            source.directory
+                .first { snapshot ->
+                    val projected = snapshot.projectDirectory()
+                    snapshot.channels.any { it.name == "Parent only" } &&
+                        projected.categoriesByServer[serverId.full]?.singleOrNull()?.channels?.any {
+                            it.id ==
+                                roomId.full
+                        } ==
+                        true
+                }.projectDirectory()
+        assertEquals(listOf(serverId.full), directory.servers.map { it.id })
+        assertEquals(emptyList(), directory.channelsByServer[serverId.full])
+        assertEquals(
+            "Smoke Lobby",
+            directory.categoriesByServer
+                .getValue(serverId.full)
+                .single()
+                .channels
+                .single()
+                .name,
+        )
+    }
 }

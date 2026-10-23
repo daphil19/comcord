@@ -12,7 +12,7 @@ class TrixnityMatrixSource(
     private val logoutAccount: suspend () -> Result<Unit>,
 ) : MatrixSource {
     override val accountId: String = matrixClient.userId.full
-    override val directory: Flow<RoomDirectoryState> = observeRoomDirectory(matrixClient)
+    override val directory: Flow<MatrixDirectory> = observeRoomDirectory(matrixClient)
 
     override suspend fun logout(): Result<Unit> = logoutAccount()
 }
