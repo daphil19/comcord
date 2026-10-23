@@ -45,6 +45,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default includes the obsolete, unavailable "tools" package.
+          packages: 'platform-tools'
 
       - name: Install Android platform
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
@@ -116,6 +119,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action's default includes the obsolete, unavailable "tools" package.
+          packages: 'platform-tools'
 
       - name: Install Android platform
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
