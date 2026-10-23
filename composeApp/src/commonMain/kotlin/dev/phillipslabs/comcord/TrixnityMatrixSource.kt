@@ -17,7 +17,7 @@ class TrixnityMatrixSource(
 }
 
 /** Startup bridge: retain the bootstrap shell's first-account policy. */
-fun MatrixMessenger.shellSources(): Flow<MatrixSource?> {
+fun MatrixMessenger.accountSources(): Flow<MatrixSource?> {
     val clients = di.get<MatrixClients>()
     return clients.map { it.entries.firstOrNull() }
         .distinctUntilChanged()

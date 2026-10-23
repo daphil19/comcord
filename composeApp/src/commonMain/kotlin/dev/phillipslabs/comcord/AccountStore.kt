@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class ShellState(
+data class AccountState(
     val accountId: String,
     val directory: RoomDirectoryState = emptyRoomDirectory(),
     val selectedGuildId: String = ALL_ROOMS_GUILD_ID,
@@ -16,12 +16,12 @@ data class ShellState(
     val selectedRoom: RoomUi? get() = directory.roomsByGuild.values.flatten().firstOrNull { it.id == selectedRoomId }
 }
 
-/** Own one store and its scope per Account; cancel the scope when that shell leaves. */
-class ShellStore(
+/** Own one store and its scope per Account; cancel the scope when its Account UI leaves. */
+class AccountStore(
     private val source: MatrixSource,
     private val scope: CoroutineScope,
 ) {
-    private val mutableState = MutableStateFlow(ShellState(accountId = source.accountId))
+    private val mutableState = MutableStateFlow(AccountState(accountId = source.accountId))
     val state = mutableState.asStateFlow()
 
     init {

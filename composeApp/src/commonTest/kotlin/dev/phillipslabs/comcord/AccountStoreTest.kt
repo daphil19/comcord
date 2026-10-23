@@ -12,11 +12,11 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ShellStoreTest {
+class AccountStoreTest {
     @Test
     fun roomListFollowsTheAccountSource() = runTest {
         val source = FakeMatrixSource("@alice:localhost")
-        val store = ShellStore(source, backgroundScope)
+        val store = AccountStore(source, backgroundScope)
         runCurrent()
 
         source.emitDirectory(
@@ -35,7 +35,7 @@ class ShellStoreTest {
     @Test
     fun selectionUsesRoomIdentityAndTracksRenames() = runTest {
         val source = FakeMatrixSource("@alice:localhost")
-        val store = ShellStore(source, backgroundScope)
+        val store = AccountStore(source, backgroundScope)
         source.emitDirectory(directory(RoomUi("!one:localhost", "Lobby"), RoomUi("!two:localhost", "Lobby")))
         runCurrent()
         store.selectRoom("!two:localhost")
@@ -53,8 +53,8 @@ class ShellStoreTest {
     fun accountStoresKeepSelectionAndLogoutSeparate() = runTest {
         val alice = FakeMatrixSource("@alice:localhost")
         val bob = FakeMatrixSource("@bob:localhost")
-        val aliceStore = ShellStore(alice, backgroundScope)
-        val bobStore = ShellStore(bob, backgroundScope)
+        val aliceStore = AccountStore(alice, backgroundScope)
+        val bobStore = AccountStore(bob, backgroundScope)
         alice.emitDirectory(directory(RoomUi("!one:localhost", "Alice's room")))
         bob.emitDirectory(directory(RoomUi("!two:localhost", "Bob's room")))
         runCurrent()
@@ -70,7 +70,7 @@ class ShellStoreTest {
     @Test
     fun removedGuildFallsBackToAllRoomsAndUnknownSelectionsAreIgnored() = runTest {
         val source = FakeMatrixSource("@alice:localhost")
-        val store = ShellStore(source, backgroundScope)
+        val store = AccountStore(source, backgroundScope)
         source.emitDirectory(directory().copy(guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms"), GuildUi("!space", "Space"))))
         runCurrent()
         store.selectGuild("!space")
@@ -87,7 +87,7 @@ class ShellStoreTest {
     fun leavingTheAccountStopsItsSourceCollection() = runTest {
         val source = FakeMatrixSource("@alice:localhost")
         val accountScope = CoroutineScope(backgroundScope.coroutineContext + Job(backgroundScope.coroutineContext[Job]))
-        val store = ShellStore(source, accountScope)
+        val store = AccountStore(source, accountScope)
         runCurrent()
         accountScope.cancel()
         source.emitDirectory(directory(RoomUi("!late:localhost", "Late update")))

@@ -204,7 +204,7 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 
 @Composable
 private fun ShellHost(matrixMessenger: MatrixMessenger) {
-    val sources = remember(matrixMessenger) { matrixMessenger.shellSources() }
+    val sources = remember(matrixMessenger) { matrixMessenger.accountSources() }
     val source by sources.collectAsState(initial = null)
     val accountSource = source
     if (accountSource == null) {
@@ -212,14 +212,14 @@ private fun ShellHost(matrixMessenger: MatrixMessenger) {
     } else {
         key(accountSource) {
             val scope = rememberCoroutineScope()
-            val store = remember(accountSource) { ShellStore(accountSource, scope) }
+            val store = remember(accountSource) { AccountStore(accountSource, scope) }
             MainShell(store)
         }
     }
 }
 
 @Composable
-private fun MainShell(store: ShellStore) {
+private fun MainShell(store: AccountStore) {
     val state by store.state.collectAsState()
     val roomDirectory = state.directory
     val roomsForGuild = state.rooms

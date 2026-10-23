@@ -55,7 +55,7 @@ class TrixnityMatrixSourceSmokeTest {
                         val roomId = client.api.room.createRoom(name = "Smoke Lobby").getOrThrow()
                         // There is no SDK MainViewModel in this fixture to start sync.
                         client.startSync()
-                        val source = messenger.shellSources().first { it != null }!!
+                        val source = messenger.accountSources().first { it != null }!!
                         assertEquals("@alice:localhost", source.accountId)
                         val directory = source.directory.first { state ->
                             state.roomsByGuild[ALL_ROOMS_GUILD_ID].orEmpty().any { it.id == roomId.full }

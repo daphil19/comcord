@@ -62,11 +62,11 @@ Do not copy source, assets, or exact visual designs from other chat clients.
 `:composeApp:assembleDebug` remains a forwarding task for compatibility. Android
 release tasks and APK/AAB outputs belong to `androidApp`.
 
-## Shell store and Matrix source
+## Account store and Matrix source
 
-`ShellStore` owns room state and selection for one Account. Its caller owns the
-coroutine scope and cancels it when that Account shell leaves. Shell composables
-collect `ShellState` and send store intents. `MatrixSource` uses Comcord models
+`AccountStore` owns room state and selection for one Account. Its caller owns the
+coroutine scope and cancels it when that Account UI leaves. Shell composables
+collect `AccountState` and send store intents. `MatrixSource` uses Comcord models
 and string IDs; keep SDK types and room observation in `TrixnityMatrixSource`
 and `ComcordRoomDirectory`. Startup/account connection may still use SDK view
 models (ADR 0002).
