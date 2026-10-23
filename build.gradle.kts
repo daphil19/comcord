@@ -30,7 +30,7 @@ tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
     gradleReleaseChannel = "current"
 }
 
-val assembleDev by tasks.registering {
+val assembleDev = tasks.register("assembleDev") {
     group = "build"
     description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
     dependsOn(
