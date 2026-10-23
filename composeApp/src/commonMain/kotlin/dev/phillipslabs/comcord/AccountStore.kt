@@ -3,22 +3,26 @@ package dev.phillipslabs.comcord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AccountState(
     val accountId: String,
     val directory: RoomDirectoryState = emptyRoomDirectory(),
-    val selectedServerId: String = ALL_ROOMS_VIEW_ID,
+    val selectedServerId: String? = ALL_ROOMS_VIEW_ID,
     val selectedRoomId: String? = null,
+    val hiddenViewIds: Set<String> = emptySet(),
     val collapsedCategoryIds: Set<String> = emptySet(),
 ) {
+    val visibleViews: List<ServerUi> get() = BUILT_IN_VIEWS.filter { it.id !in hiddenViewIds }
+    val destinations: List<ServerUi> get() = visibleViews + directory.servers
     val categories: List<CategoryUi> get() = directory.categoriesByServer[selectedServerId].orEmpty()
     val uncategorizedChannels: List<ChannelUi> get() = directory.channelsByServer[selectedServerId].orEmpty()
     val rooms: List<ChannelUi> get() = uncategorizedChannels + categories.flatMap { it.channels }
     val selectedRoom: ChannelUi? get() =
-        directory.channelsByServer
-            .getValue(ALL_ROOMS_VIEW_ID)
+        directory.channelsByServer.values
+            .flatten()
             .firstOrNull { it.id == selectedRoomId }
 }
 
@@ -32,29 +36,31 @@ class AccountStore(
 
     init {
         scope.launch {
-            source.directory.collect { snapshot ->
-                val directory = snapshot.projectDirectory()
-                mutableState.update { current ->
-                    current.copy(
-                        directory = directory,
-                        selectedServerId =
-                            current.selectedServerId.takeIf { id -> directory.servers.any { it.id == id } }
-                                ?: ALL_ROOMS_VIEW_ID,
-                        selectedRoomId =
-                            current.selectedRoomId.takeIf { id ->
-                                directory.channelsByServer.values.any { rooms -> rooms.any { it.id == id } }
-                            },
-                    )
+            combine(
+                source.directory,
+                source.hiddenViewIds,
+            ) { snapshot, hidden -> snapshot.projectDirectory() to hidden }
+                .collect { (directory, hidden) ->
+                    mutableState.update { current ->
+                        val updated = current.copy(directory = directory, hiddenViewIds = hidden)
+                        updated.copy(
+                            selectedServerId =
+                                updated.selectedServerId.takeIf { id -> updated.destinations.any { it.id == id } }
+                                    ?: updated.destinations.firstOrNull { it.id == ALL_ROOMS_VIEW_ID }?.id
+                                    ?: updated.destinations.firstOrNull()?.id,
+                            selectedRoomId =
+                                current.selectedRoomId.takeIf { id ->
+                                    directory.channelsByServer.values.any { rooms -> rooms.any { it.id == id } }
+                                },
+                        )
+                    }
                 }
-            }
         }
     }
 
     fun selectServer(id: String) {
         mutableState.update { current ->
-            if (id == ALL_ROOMS_VIEW_ID ||
-                current.directory.servers.any { it.id == id }
-            ) {
+            if (current.destinations.any { it.id == id }) {
                 current.copy(selectedServerId = id)
             } else {
                 current
@@ -84,6 +90,16 @@ class AccountStore(
             }
         }
     }
+
+    fun setViewHidden(
+        id: String,
+        hidden: Boolean,
+    ) {
+        if (BUILT_IN_VIEWS.none { it.id == id }) return
+        scope.launch { source.setViewHidden(id, hidden) }
+    }
+
+    suspend fun loadAvatar(url: String): ByteArray? = source.loadAvatar(url)
 
     fun logout() {
         scope.launch { source.logout() }

@@ -267,6 +267,89 @@ class AccountStoreTest {
             assertEquals(emptySet(), store.state.value.collapsedCategoryIds)
         }
 
+    @Test
+    fun viewsSeparateDirectMessagesFromChannelsAndFindNestedOrphans() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            val dm = ChannelUi("dm", "Bob", avatarUrl = "mxc://localhost/bob")
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels =
+                        listOf(
+                            ChannelUi("dm", "Room name"),
+                            ChannelUi("group", "Group chat"),
+                            ChannelUi("nested", "Nested"),
+                        ),
+                    directMessages = listOf(dm),
+                    spaces =
+                        listOf(
+                            SpaceSnapshot("server", "Server", listOf(SpaceChild("dm"), SpaceChild("category"))),
+                            SpaceSnapshot("category", "Category", listOf(SpaceChild("nested"))),
+                        ),
+                ),
+            )
+            runCurrent()
+            assertEquals(
+                listOf("group", "nested"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            store.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            assertEquals(listOf(dm), store.state.value.rooms)
+            store.selectRoom("dm")
+            assertEquals(dm, store.state.value.selectedRoom)
+            source.emitSnapshot(source.directory.value.copy(syncStateLabel = "Synced"))
+            runCurrent()
+            assertEquals(DIRECT_MESSAGES_VIEW_ID, store.state.value.selectedServerId)
+            store.selectServer(ORPHAN_ROOMS_VIEW_ID)
+            assertEquals(
+                listOf("group"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            store.selectServer("server")
+            assertEquals(
+                listOf("nested"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun hiddenViewsSurviveStoreRecreationAndCanBeRestoredPerAccount() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            runCurrent()
+            assertEquals(BUILT_IN_VIEWS, store.state.value.visibleViews)
+            store.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            store.setViewHidden(DIRECT_MESSAGES_VIEW_ID, true)
+            runCurrent()
+            val restarted = AccountStore(source, backgroundScope)
+            val bob = AccountStore(FakeMatrixSource("bob"), backgroundScope)
+            runCurrent()
+            assertEquals(
+                listOf(ALL_ROOMS_VIEW_ID, ORPHAN_ROOMS_VIEW_ID),
+                restarted.state.value.visibleViews
+                    .map { it.id },
+            )
+            assertEquals(ALL_ROOMS_VIEW_ID, store.state.value.selectedServerId)
+            restarted.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            assertEquals(ALL_ROOMS_VIEW_ID, restarted.state.value.selectedServerId)
+            assertEquals(BUILT_IN_VIEWS, bob.state.value.visibleViews)
+            restarted.setViewHidden(DIRECT_MESSAGES_VIEW_ID, false)
+            runCurrent()
+            assertEquals(BUILT_IN_VIEWS, restarted.state.value.visibleViews)
+            BUILT_IN_VIEWS.forEach { restarted.setViewHidden(it.id, true) }
+            runCurrent()
+            assertEquals(emptyList(), restarted.state.value.visibleViews)
+            assertNull(restarted.state.value.selectedServerId)
+            restarted.setViewHidden(ORPHAN_ROOMS_VIEW_ID, false)
+            runCurrent()
+            assertEquals(ORPHAN_ROOMS_VIEW_ID, restarted.state.value.selectedServerId)
+        }
+
     private fun directory(vararg rooms: ChannelUi) =
         MatrixDirectory(
             channels = rooms.toList(),

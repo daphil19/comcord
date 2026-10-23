@@ -8,6 +8,18 @@ class FakeMatrixSource(
 ) : MatrixSource {
     private val mutableDirectory = MutableStateFlow(MatrixDirectory())
     override val directory = mutableDirectory.asStateFlow()
+    private val mutableHiddenViewIds = MutableStateFlow<Set<String>>(emptySet())
+    override val hiddenViewIds = mutableHiddenViewIds.asStateFlow()
+
+    override suspend fun setViewHidden(
+        id: String,
+        hidden: Boolean,
+    ) {
+        mutableHiddenViewIds.value = if (hidden) hiddenViewIds.value + id else hiddenViewIds.value - id
+    }
+
+    override suspend fun loadAvatar(url: String): ByteArray? = null
+
     var loggedOut = false
         private set
 

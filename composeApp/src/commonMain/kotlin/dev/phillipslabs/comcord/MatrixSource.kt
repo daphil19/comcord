@@ -6,9 +6,27 @@ import kotlinx.coroutines.flow.Flow
 interface MatrixSource {
     val accountId: String
     val directory: Flow<MatrixDirectory>
+    val hiddenViewIds: Flow<Set<String>>
+
+    suspend fun setViewHidden(
+        id: String,
+        hidden: Boolean,
+    )
+
+    suspend fun loadAvatar(url: String): ByteArray?
 
     suspend fun logout(): Result<Unit>
 }
+
+const val DIRECT_MESSAGES_VIEW_ID = "direct-messages"
+const val ORPHAN_ROOMS_VIEW_ID = "orphan-rooms"
+
+val BUILT_IN_VIEWS =
+    listOf(
+        ServerUi(DIRECT_MESSAGES_VIEW_ID, "Direct Messages"),
+        ServerUi(ALL_ROOMS_VIEW_ID, "All Rooms"),
+        ServerUi(ORPHAN_ROOMS_VIEW_ID, "Orphan Rooms"),
+    )
 
 const val ALL_ROOMS_VIEW_ID = "all-rooms"
 
@@ -20,6 +38,7 @@ data class ServerUi(
 data class ChannelUi(
     val id: String,
     val name: String,
+    val avatarUrl: String? = null,
 )
 
 data class RoomDirectoryState(
@@ -40,6 +59,7 @@ fun emptyRoomDirectory() =
 data class MatrixDirectory(
     val channels: List<ChannelUi> = emptyList(),
     val spaces: List<SpaceSnapshot> = emptyList(),
+    val directMessages: List<ChannelUi> = emptyList(),
     val syncStateLabel: String = "Starting sync",
 )
 

@@ -5,22 +5,29 @@ import de.connect2x.trixnity.clientserverapi.client.MatrixClientAuthProviderData
 import de.connect2x.trixnity.clientserverapi.client.classicLoginWithPassword
 import de.connect2x.trixnity.clientserverapi.model.authentication.IdentifierType
 import de.connect2x.trixnity.core.model.RoomId
+import de.connect2x.trixnity.core.model.UserId
+import de.connect2x.trixnity.core.model.events.m.DirectEventContent
 import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent
 import de.connect2x.trixnity.core.model.events.m.space.ChildEventContent
 import de.connect2x.trixnity.core.model.events.m.space.ParentEventContent
 import de.connect2x.trixnity.messenger.MatrixClients
+import de.connect2x.trixnity.messenger.MatrixMessengerAccountSettingsBase
+import de.connect2x.trixnity.messenger.MatrixMessengerSettingsHolderImpl
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
 import de.connect2x.trixnity.messenger.multi.create
 import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
 import de.connect2x.trixnity.messenger.secrets.SecretByteArrays
 import de.connect2x.trixnity.messenger.secrets.SecretByteArraysImpl
+import de.connect2x.trixnity.messenger.settings.FileSystemSettingsStorage
 import de.connect2x.trixnity.messenger.util.RootPath
 import io.ktor.http.Url
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.FileSystem
 import okio.Path.Companion.toPath
 import org.koin.dsl.module
+import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -71,6 +78,8 @@ class TrixnityMatrixSourceSmokeTest {
                             val source = messenger.accountSources().first { it != null }!!
                             assertEquals("@alice:localhost", source.accountId)
                             assertHierarchy(source, serverId, roomId)
+                            assertDirectMessages(client, source, serverId, roomId)
+                            assertViewPersistence(client, storage)
                             source.logout().getOrThrow()
                             assertTrue(clients.value.isEmpty())
                         }
@@ -82,6 +91,61 @@ class TrixnityMatrixSourceSmokeTest {
                 }
             }
         }
+
+    private suspend fun assertDirectMessages(
+        client: MatrixClient,
+        source: MatrixSource,
+        serverId: RoomId,
+        roomId: RoomId,
+    ) {
+        val otherPerson = UserId("@bob:localhost")
+        client.api.user
+            .setAccountData(
+                DirectEventContent(mapOf(otherPerson to setOf(roomId))),
+                client.userId,
+            ).getOrThrow()
+        val direct = source.directory.first { it.directMessages.any { dm -> dm.id == roomId.full } }
+        assertEquals("@bob:localhost", direct.directMessages.single().name)
+        val projected = direct.projectDirectory()
+        assertTrue(projected.channelsByServer.getValue(ALL_ROOMS_VIEW_ID).none { it.id == roomId.full })
+        assertTrue(
+            projected.categoriesByServer.getValue(serverId.full).flatMap { it.channels }.none {
+                it.id ==
+                    roomId.full
+            },
+        )
+        client.api.user
+            .setAccountData(DirectEventContent(emptyMap()), client.userId)
+            .getOrThrow()
+        val restored = source.directory.first { it.directMessages.isEmpty() }
+        assertTrue(
+            restored
+                .projectDirectory()
+                .channelsByServer
+                .getValue(ALL_ROOMS_VIEW_ID)
+                .any { it.id == roomId.full },
+        )
+    }
+
+    private suspend fun assertViewPersistence(
+        client: MatrixClient,
+        storage: File,
+    ) {
+        val disk =
+            FileSystemSettingsStorage(storage.resolve("view-settings.json").absolutePath.toPath(), FileSystem.SYSTEM)
+        val settings = MatrixMessengerSettingsHolderImpl(disk)
+        settings.init()
+        settings.create(client.userId, MatrixMessengerAccountSettingsBase())
+        val source = TrixnityMatrixSource(client, settings) { Result.success(Unit) }
+        source.setViewHidden(DIRECT_MESSAGES_VIEW_ID, true)
+        source.setViewHidden(ALL_ROOMS_VIEW_ID, true)
+        val reloaded = MatrixMessengerSettingsHolderImpl(disk)
+        reloaded.init()
+        val restarted = TrixnityMatrixSource(client, reloaded) { Result.success(Unit) }
+        assertEquals(setOf(DIRECT_MESSAGES_VIEW_ID, ALL_ROOMS_VIEW_ID), restarted.hiddenViewIds.first())
+        restarted.setViewHidden(DIRECT_MESSAGES_VIEW_ID, false)
+        assertEquals(setOf(ALL_ROOMS_VIEW_ID), restarted.hiddenViewIds.first())
+    }
 
     private suspend fun createHierarchy(
         client: MatrixClient,
