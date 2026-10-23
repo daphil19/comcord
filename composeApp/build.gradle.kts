@@ -1,6 +1,7 @@
 import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
 import java.lang.module.ModuleFinder.compose
 
@@ -78,12 +79,20 @@ kotlin {
             implementation(libs.trixnity.messenger)
             implementation(libs.decompose.extensions)
         }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.test.junit)
+        }
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation(libs.ktor.client.cio)
             implementation(libs.kotlinx.coroutines.swing)
         }
         webMain.dependencies {
@@ -118,4 +127,23 @@ compose.desktop {
 tasks.register("assembleDebug") {
     group = "build"
     dependsOn(":androidApp:assembleDebug")
+}
+
+// Container smoke tests are explicit so fast JVM/common tests work without Docker.
+val jvmTest = tasks.named<Test>("jvmTest") {
+    exclude("**/*SmokeTest.class")
+}
+tasks.register<Test>("matrixSmokeTest") {
+    group = "verification"
+    description = "Runs the Trixnity adapter against a test-managed Synapse container (requires Docker)."
+    testClassesDirs = jvmTest.get().testClassesDirs
+    classpath = jvmTest.get().classpath
+    include("**/*SmokeTest.class")
+    outputs.upToDateWhen { false }
+}
+
+// Kotlin 2.4.21's incremental Wasm test linker emits invalid GC types in the
+// Trixnity/test dependency graph, preventing Karma from discovering any tests.
+tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasmJs") {
+    incrementalWasm = false
 }

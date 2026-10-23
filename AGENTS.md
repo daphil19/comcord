@@ -24,8 +24,9 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 - Web run: `./gradlew :composeApp:jsBrowserDevelopmentRun` or `./gradlew :composeApp:wasmJsBrowserDevelopmentRun`
 - Web lock refresh: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
 - iOS: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
-- Fast tests: `./gradlew :composeApp:jvmTest`
-- Full tests: `./gradlew :composeApp:allTests`
+- Fast shared/store tests on JVM (no Docker): `./gradlew :composeApp:jvmTest`
+- Matrix adapter smoke tests: `./gradlew :composeApp:matrixSmokeTest` (Docker required; starts and removes an isolated Synapse container, random port, and fresh database)
+- Full platform tests: `./gradlew :composeApp:allTests` (run `:composeApp:matrixSmokeTest` separately for Matrix integration)
 - Local homeserver: `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
 
 Choose the narrowest verification that covers the change: relevant tests/checks,
@@ -60,3 +61,17 @@ Do not copy source, assets, or exact visual designs from other chat clients.
 
 `:composeApp:assembleDebug` remains a forwarding task for compatibility. Android
 release tasks and APK/AAB outputs belong to `androidApp`.
+
+## Account store and Matrix source
+
+`AccountStore` owns room state and selection for one Account. Its caller owns the
+coroutine scope and cancels it when that Account UI leaves. Shell composables
+collect `AccountState` and send store intents. `MatrixSource` uses Comcord models
+and string IDs; keep SDK types and room observation in `TrixnityMatrixSource`
+and `ComcordRoomDirectory`. Startup/account connection may still use SDK view
+models (ADR 0002).
+
+Put store behavior tests in `commonTest`, driving `FakeMatrixSource`. Put adapter
+integration tests in JVM `*SmokeTest` classes; `matrixSmokeTest` runs these while
+`jvmTest` excludes them. Smoke tests own their homeserver and client storage;
+they must work without the development Docker Compose stack.

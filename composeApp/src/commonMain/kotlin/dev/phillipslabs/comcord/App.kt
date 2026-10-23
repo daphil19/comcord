@@ -29,10 +29,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
-import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.messenger.MatrixMessenger
 import de.connect2x.trixnity.messenger.viewmodel.RootRouter
 import de.connect2x.trixnity.messenger.viewmodel.RootViewModel
@@ -51,7 +49,6 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountStat
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 private val AppBg = Color(0xFF1A1D24)
 private val GuildRailBg = Color(0xFF12141A)
@@ -78,7 +75,7 @@ fun App(
             when (route) {
                 is RootRouter.Wrapper.AddMatrixAccount -> AddMatrixAccountScreen(route.viewModel)
                 is RootRouter.Wrapper.PasswordLogin -> PasswordLoginScreen(route.viewModel)
-                is RootRouter.Wrapper.Main -> MainShell(matrixMessenger)
+                is RootRouter.Wrapper.Main -> ActiveAccountScreen(matrixMessenger)
                 else -> CenterStatus(routeStatus(route))
             }
         }
@@ -206,35 +203,26 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 }
 
 @Composable
-private fun MainShell(matrixMessenger: MatrixMessenger) {
-    val matrixClients = remember(matrixMessenger) { matrixMessenger.di.get<MatrixClients>() }
-    val clients by matrixClients.collectAsStateCompat()
-    val entry = clients.entries.firstOrNull()
-    val matrixClient = entry?.value
-    val userId = entry?.key
-    val scope = rememberCoroutineScope()
-
-    if (matrixClient == null || userId == null) {
+private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
+    val sources = remember(matrixMessenger) { matrixMessenger.accountSources() }
+    val source by sources.collectAsState(initial = null)
+    val accountSource = source
+    if (accountSource == null) {
         CenterStatus("No active account")
-        return
+    } else {
+        key(accountSource) {
+            val scope = rememberCoroutineScope()
+            val store = remember(accountSource) { AccountStore(accountSource, scope) }
+            MainShell(store)
+        }
     }
+}
 
-    val roomDirectory by observeRoomDirectory(matrixClient).collectAsStateCompat(
-        RoomDirectoryState(
-            guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
-            roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to emptyList()),
-            syncStateLabel = "Starting sync",
-        )
-    )
-
-    var selectedGuildId by remember { mutableStateOf(ALL_ROOMS_GUILD_ID) }
-    var selectedRoomName by remember { mutableStateOf<String?>(null) }
-
-    if (roomDirectory.guilds.none { it.id == selectedGuildId }) {
-        selectedGuildId = ALL_ROOMS_GUILD_ID
-    }
-    val roomsForGuild = roomDirectory.roomsByGuild[selectedGuildId].orEmpty()
-
+@Composable
+private fun MainShell(store: AccountStore) {
+    val state by store.state.collectAsState()
+    val roomDirectory = state.directory
+    val roomsForGuild = state.rooms
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compact = maxWidth < 900.dp
 
@@ -242,24 +230,20 @@ private fun MainShell(matrixMessenger: MatrixMessenger) {
             GuildRail(
                 compact = compact,
                 guilds = roomDirectory.guilds,
-                selectedGuildId = selectedGuildId,
-                onSelectGuild = { selectedGuildId = it },
-                onLogout = {
-                    scope.launch {
-                        matrixClients.logout(userId)
-                    }
-                },
+                selectedGuildId = state.selectedGuildId,
+                onSelectGuild = store::selectGuild,
+                onLogout = store::logout,
             )
             if (!compact) {
                 ChannelPanel(
                     status = roomDirectory.syncStateLabel,
                     channels = roomsForGuild,
-                    selectedRoomName = selectedRoomName,
-                    onSelectRoom = { selectedRoomName = it.name },
+                    selectedRoomId = state.selectedRoomId,
+                    onSelectRoom = { store.selectRoom(it.id) },
                 )
             }
             ChatPanel(
-                selectedChannel = selectedRoomName ?: "Select a room",
+                selectedChannel = state.selectedRoom?.name ?: "Select a room",
                 roomsCount = roomsForGuild.size,
                 syncStateLabel = roomDirectory.syncStateLabel,
             )
@@ -325,7 +309,7 @@ private fun GuildDot(
 private fun ChannelPanel(
     status: String,
     channels: List<RoomUi>,
-    selectedRoomName: String?,
+    selectedRoomId: String?,
     onSelectRoom: (RoomUi) -> Unit,
 ) {
     Column(
@@ -352,7 +336,7 @@ private fun ChannelPanel(
                 val channel = channels[index]
                 ChannelRow(
                     roomName = channel.name,
-                    selected = selectedRoomName == channel.name,
+                    selected = selectedRoomId == channel.id,
                     onClick = { onSelectRoom(channel) },
                 )
             }
@@ -444,10 +428,6 @@ private fun ChatPanel(
 
 @Composable
 private fun <T> StateFlow<T>.collectAsStateCompat() = collectAsState()
-
-@Composable
-private fun <T> kotlinx.coroutines.flow.Flow<T>.collectAsStateCompat(initial: T) =
-    collectAsState(initial = initial)
 
 private fun routeStatus(route: RootRouter.Wrapper): String =
     when (route) {

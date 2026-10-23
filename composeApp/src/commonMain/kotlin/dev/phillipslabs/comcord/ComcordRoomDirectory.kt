@@ -17,26 +17,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
-const val ALL_ROOMS_GUILD_ID = "all-rooms"
-
-data class GuildUi(
-    val id: String,
-    val name: String,
-)
-
-data class RoomUi(
-    val id: RoomId,
-    val name: String,
-)
-
-data class RoomDirectoryState(
-    val guilds: List<GuildUi>,
-    val roomsByGuild: Map<String, List<RoomUi>>,
-    val syncStateLabel: String,
-)
-
 @OptIn(ExperimentalCoroutinesApi::class)
-fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirectoryState> {
+internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirectoryState> {
     val syncLabelFlow =
         matrixClient.syncState.map { syncState ->
             when (syncState) {
@@ -105,7 +87,7 @@ fun observeRoomDirectory(matrixClient: MatrixClient): Flow<RoomDirectoryState> {
             guilds.forEach { guild -> roomsByGuild[guild.id] = mutableListOf() }
 
             roomsWithoutSpaces.sortedBy { it.displayName() }.forEach { room ->
-                val roomUi = RoomUi(id = room.roomId, name = room.displayName())
+                val roomUi = RoomUi(id = room.roomId.full, name = room.displayName())
                 roomsByGuild.getOrPut(ALL_ROOMS_GUILD_ID) { mutableListOf() }.add(roomUi)
 
                 val parentGuildIds = parentLookup[room.roomId].orEmpty().filter { spaceIds.contains(it) }
