@@ -62,8 +62,8 @@ jobs:
             :composeApp:jsBrowserProductionWebpack \
             :composeApp:wasmJsBrowserProductionWebpack \
             :composeApp:jvmTest \
-            :androidApp:testDebugUnitTest \
-            :androidApp:testReleaseUnitTest
+            :composeApp:testAndroidHostTest \
+            :androidApp:test
 
       - name: Verify JS and Wasm browser tests
         run: |
