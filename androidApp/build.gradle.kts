@@ -1,16 +1,52 @@
+import dev.detekt.gradle.Detekt
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+ktlint {
+    version.set(libs.versions.ktlint)
+    android.set(true)
+    filter {
+        exclude("**/build/**", "**/generated/**")
+    }
+}
+
+detekt {
+    buildUponDefaultConfig.set(true)
+    config.setFrom(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+    // Include build-type/flavor and test sources in the syntax-only pass too.
+    source.setFrom(layout.projectDirectory.dir("src"))
+}
+
+tasks.withType<Detekt>().configureEach {
+    exclude("**/build/**", "**/generated/**")
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("detektMain"), tasks.named("detektTest"))
 }
 
 android {
     namespace = "dev.phillipslabs.comcord"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "dev.phillipslabs.comcord"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.android.targetSdk
+                .get()
+                .toInt()
         versionCode = 1
         versionName = "1.0"
     }
@@ -36,10 +72,15 @@ android {
 }
 
 kotlin {
-    jvmToolchain(libs.versions.jdk.get().toInt())
+    jvmToolchain(
+        libs.versions.jdk
+            .get()
+            .toInt(),
+    )
 }
 
 dependencies {
+    ktlintRuleset(libs.ktlint.compose)
     implementation(projects.composeApp)
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)

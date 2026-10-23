@@ -13,7 +13,10 @@ data class AccountState(
     val selectedRoomId: String? = null,
 ) {
     val rooms: List<RoomUi> get() = directory.roomsByGuild[selectedGuildId].orEmpty()
-    val selectedRoom: RoomUi? get() = directory.roomsByGuild.values.flatten().firstOrNull { it.id == selectedRoomId }
+    val selectedRoom: RoomUi? get() =
+        directory.roomsByGuild.values
+            .flatten()
+            .firstOrNull { it.id == selectedRoomId }
 }
 
 /** Own one store and its scope per Account; cancel the scope when its Account UI leaves. */
@@ -30,11 +33,13 @@ class AccountStore(
                 mutableState.update { current ->
                     current.copy(
                         directory = directory,
-                        selectedGuildId = current.selectedGuildId.takeIf { id -> directory.guilds.any { it.id == id } }
-                            ?: ALL_ROOMS_GUILD_ID,
-                        selectedRoomId = current.selectedRoomId.takeIf { id ->
-                            directory.roomsByGuild.values.any { rooms -> rooms.any { it.id == id } }
-                        },
+                        selectedGuildId =
+                            current.selectedGuildId.takeIf { id -> directory.guilds.any { it.id == id } }
+                                ?: ALL_ROOMS_GUILD_ID,
+                        selectedRoomId =
+                            current.selectedRoomId.takeIf { id ->
+                                directory.roomsByGuild.values.any { rooms -> rooms.any { it.id == id } }
+                            },
                     )
                 }
             }

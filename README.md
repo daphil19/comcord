@@ -44,7 +44,7 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - Java stays on 17; Android minSdk 28 and targetSdk 36 retain the current device support and runtime behavior. Only compileSdk advances to 37 for dependency compatibility.
 - Compatibility bounds: [Kotlin toolchain matrix](https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html). Dependency baselines: [Trixnity Messenger 4.10.3 metadata](https://gitlab.com/api/v4/projects/47538655/packages/maven/de/connect2x/trixnity/messenger/trixnity-messenger/4.10.3/trixnity-messenger-4.10.3.module).
 - Homeserver can be customized at login, with `https://matrix.org` prefilled as the default
-- During skeleton development, code quality gates (lint/ktlint/detekt) are intentionally disabled and will be re-enabled later
+- ktlint and Detekt run as part of `check` and `buildDev`; see the code quality notes below.
 
 ## Local mocked Matrix server
 
@@ -111,9 +111,36 @@ Use targeted tests/checks and affected-platform compilation for normal developme
 `./gradlew build` is optional full release validation: it also bundles production
 JS/Wasm and links release iOS frameworks, and can take substantially longer. For
 production bundling changes, run the affected production webpack task directly.
-Test tasks currently report
-`NO-SOURCE` or `SKIPPED` because the project has no test sources; verify login and
-sync separately using the steps below.
+`buildDev` includes the account-store tests. Run `:composeApp:matrixSmokeTest`
+separately for the isolated Synapse integration test (Docker required). Verify
+interactive login and sync using the steps below.
+
+## Code quality
+
+- `./gradlew ktlintCheck detekt`: formatting, Compose rules, and syntax-based analysis across all source sets.
+- `./gradlew ktlintFormat`: apply automatic formatting fixes (some Compose findings require manual changes).
+- `./gradlew check`: all quality gates and configured tests, including Detekt type resolution for desktop JVM and Android.
+- `./gradlew buildDev`: the same checks plus development compilation for every platform.
+
+ktlint also checks the root and module Kotlin Gradle scripts. `.editorconfig` uses
+`ktlint_official` for shared, iOS, desktop, web, and build scripts, and
+`android_studio` for `androidApp/src` and Android source sets in `composeApp`.
+Compose rules run on both modules, including shared Compose UI. Generated and
+build output sources are excluded.
+
+Detekt uses `config/detekt/detekt.yml` on top of its default rules, with strict
+configuration validation and Compose conventions. The plugin is pinned to
+`2.0.0-alpha.6` because Detekt 1.23.8 predates this project's Kotlin 2.x/AGP 9
+setup; Detekt 2 supports built-in Android Kotlin without legacy opt-outs.
+See the [Detekt migration notes](https://detekt.dev/changelog-2.0.0/).
+Android variants use their compilation classpaths; KMP JVM/Android compilations
+get type-aware analysis too. iOS, JS, and Wasm receive syntax-based analysis;
+Detekt does not provide native or web type resolution through these Gradle tasks.
+
+Reports are under each module's `build/reports/ktlint/` and
+`build/reports/detekt/` (root script reports are under `build/reports/ktlint/`).
+Findings fail the checks; no baseline is used. Android Lint is configured
+separately in `androidApp/build.gradle.kts`.
 
 ## Local login and sync check
 

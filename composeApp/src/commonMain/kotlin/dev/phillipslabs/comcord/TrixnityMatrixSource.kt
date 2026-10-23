@@ -13,13 +13,15 @@ class TrixnityMatrixSource(
 ) : MatrixSource {
     override val accountId: String = matrixClient.userId.full
     override val directory: Flow<RoomDirectoryState> = observeRoomDirectory(matrixClient)
+
     override suspend fun logout(): Result<Unit> = logoutAccount()
 }
 
 /** Startup bridge: retain the bootstrap shell's first-account policy. */
 fun MatrixMessenger.accountSources(): Flow<MatrixSource?> {
     val clients = di.get<MatrixClients>()
-    return clients.map { it.entries.firstOrNull() }
+    return clients
+        .map { it.entries.firstOrNull() }
         .distinctUntilChanged()
         .map { entry ->
             entry?.let { (userId, client) -> TrixnityMatrixSource(client) { clients.logout(userId) } }

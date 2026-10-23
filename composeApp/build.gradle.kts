@@ -1,15 +1,42 @@
-import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
+import dev.detekt.gradle.Detekt
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
-import sun.jvmstat.monitor.MonitoredVmUtil.mainClass
-import java.lang.module.ModuleFinder.compose
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+ktlint {
+    version.set(libs.versions.ktlint)
+    filter {
+        exclude("**/build/**", "**/generated/**")
+    }
+}
+
+dependencies {
+    ktlintRuleset(libs.ktlint.compose)
+}
+
+detekt {
+    buildUponDefaultConfig.set(true)
+    config.setFrom(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+    // The default Detekt source roots omit KMP, including iOS and web sources.
+    source.setFrom(provider { kotlin.sourceSets.map { it.kotlin.sourceDirectories } })
+}
+
+tasks.withType<Detekt>().configureEach {
+    exclude("**/build/**", "**/generated/**")
+}
+
+tasks.named("check") {
+    // KMP type-resolution tasks are available for JVM/Android, but aren't wired to check.
+    dependsOn(tasks.withType<Detekt>())
 }
 
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -130,9 +157,10 @@ tasks.register("assembleDebug") {
 }
 
 // Container smoke tests are explicit so fast JVM/common tests work without Docker.
-val jvmTest = tasks.named<Test>("jvmTest") {
-    exclude("**/*SmokeTest.class")
-}
+val jvmTest =
+    tasks.named<Test>("jvmTest") {
+        exclude("**/*SmokeTest.class")
+    }
 tasks.register<Test>("matrixSmokeTest") {
     group = "verification"
     description = "Runs the Trixnity adapter against a test-managed Synapse container (requires Docker)."

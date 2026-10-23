@@ -75,4 +75,5 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 gradle-versions = { id = "io.github.ben-manes.versions", version = "0.66.0" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "14.2.0" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version = "1.23.8" }
+# Detekt 2 supports Kotlin 2.x and AGP 9 built-in Kotlin without legacy opt-outs.
+detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }

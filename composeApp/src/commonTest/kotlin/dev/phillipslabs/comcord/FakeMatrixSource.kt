@@ -3,7 +3,9 @@ package dev.phillipslabs.comcord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class FakeMatrixSource(override val accountId: String) : MatrixSource {
+class FakeMatrixSource(
+    override val accountId: String,
+) : MatrixSource {
     private val mutableDirectory = MutableStateFlow(emptyRoomDirectory())
     override val directory = mutableDirectory.asStateFlow()
     var loggedOut = false

@@ -1,6 +1,7 @@
 import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
 
 plugins {
+    base
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
     alias(libs.plugins.androidApplication) apply false
@@ -9,6 +10,16 @@ plugins {
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.gradle.versions)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt) apply false
+}
+
+ktlint {
+    version.set(libs.versions.ktlint)
+}
+
+tasks.named("check") {
+    dependsOn(":composeApp:check", ":androidApp:check")
 }
 
 // checks to see if a release is "stable," meaning we don't have to worry about rc versions polluting a dependencyUpdates check
@@ -30,20 +41,21 @@ tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
     gradleReleaseChannel = "current"
 }
 
-val assembleDev = tasks.register("assembleDev") {
-    group = "build"
-    description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
-    dependsOn(
-        ":composeApp:jvmJar",
-        ":androidApp:assembleDebug",
-        ":composeApp:compileKotlinJs",
-        ":composeApp:compileKotlinWasmJs",
-        ":composeApp:linkDebugFrameworkIosSimulatorArm64",
-    )
-}
+val assembleDev =
+    tasks.register("assembleDev") {
+        group = "build"
+        description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
+        dependsOn(
+            ":composeApp:jvmJar",
+            ":androidApp:assembleDebug",
+            ":composeApp:compileKotlinJs",
+            ":composeApp:compileKotlinWasmJs",
+            ":composeApp:linkDebugFrameworkIosSimulatorArm64",
+        )
+    }
 
 tasks.register("buildDev") {
     group = "build"
     description = "Assembles development artifacts and runs both modules' checks and tests."
-    dependsOn(assembleDev, ":composeApp:check", ":androidApp:check")
+    dependsOn(assembleDev, tasks.named("check"))
 }

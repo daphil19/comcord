@@ -63,13 +63,14 @@ private val TextMuted = Color(0xFFA7ACB7)
 fun App(
     rootViewModel: RootViewModel,
     matrixMessenger: MatrixMessenger,
+    modifier: Modifier = Modifier,
 ) {
     val stackState = rootViewModel.stack.subscribeAsState()
     val route = stackState.value.active.instance
 
     MaterialTheme {
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize(),
             color = AppBg,
         ) {
             when (route) {
@@ -131,14 +132,21 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
         Text(
             text =
                 when (discoveryState) {
-                    AddMatrixAccountViewModel.ServerDiscoveryState.Loading -> "Checking homeserver..."
-                    is AddMatrixAccountViewModel.ServerDiscoveryState.Failure ->
+                    AddMatrixAccountViewModel.ServerDiscoveryState.Loading -> {
+                        "Checking homeserver..."
+                    }
+
+                    is AddMatrixAccountViewModel.ServerDiscoveryState.Failure -> {
                         (discoveryState as AddMatrixAccountViewModel.ServerDiscoveryState.Failure).message
+                    }
 
-                    is AddMatrixAccountViewModel.ServerDiscoveryState.Success ->
+                    is AddMatrixAccountViewModel.ServerDiscoveryState.Success -> {
                         "Homeserver ready"
+                    }
 
-                    AddMatrixAccountViewModel.ServerDiscoveryState.None -> "Enter a homeserver"
+                    AddMatrixAccountViewModel.ServerDiscoveryState.None -> {
+                        "Enter a homeserver"
+                    }
                 },
             color = TextMuted,
         )

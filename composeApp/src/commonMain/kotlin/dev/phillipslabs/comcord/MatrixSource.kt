@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface MatrixSource {
     val accountId: String
     val directory: Flow<RoomDirectoryState>
+
     suspend fun logout(): Result<Unit>
 }
 
@@ -27,8 +28,9 @@ data class RoomDirectoryState(
     val syncStateLabel: String,
 )
 
-fun emptyRoomDirectory() = RoomDirectoryState(
-    guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
-    roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to emptyList()),
-    syncStateLabel = "Starting sync",
-)
+fun emptyRoomDirectory() =
+    RoomDirectoryState(
+        guilds = listOf(GuildUi(ALL_ROOMS_GUILD_ID, "All Rooms")),
+        roomsByGuild = mapOf(ALL_ROOMS_GUILD_ID to emptyList()),
+        syncStateLabel = "Starting sync",
+    )
