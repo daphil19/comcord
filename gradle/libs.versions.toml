@@ -1,13 +1,13 @@
 [versions]
 # Kotlin 2.4.21 documents AGP support through 9.3.1 (newer 9.4.x is held back).
-agp = "9.1.0" # latest supported version in intellij
+agp = "9.1.1" # latest supported version in intellij
 compose-multiplatform = "1.12.2"
 compose-material3 = "1.9.0"
 kotlin = "2.4.21"
 
 android-compileSdk = "37"
 android-minSdk = "28"
-android-targetSdk = "36"
+android-targetSdk = "37"
 androidx-activityCompose = "1.13.0"
 androidx-appcompat = "1.8.0"
 androidx-constraintlayout = "2.2.2"
