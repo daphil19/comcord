@@ -435,7 +435,7 @@ private fun StatusBadge(status: String) {
 
 @Composable
 private fun ChannelRow(
-    channel: ChannelUi,
+    channel: RoomUi,
     selected: Boolean,
     directMessage: Boolean,
     store: AccountStore,
@@ -467,7 +467,7 @@ private fun ChannelRow(
 
 @Composable
 private fun DirectMessageAvatar(
-    channel: ChannelUi,
+    channel: RoomUi,
     store: AccountStore,
 ) {
     val bitmap by produceState<ImageBitmap?>(null, channel.avatarUrl, store) {

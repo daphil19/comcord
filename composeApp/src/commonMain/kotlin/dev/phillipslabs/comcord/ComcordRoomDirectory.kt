@@ -48,14 +48,14 @@ internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<MatrixDirect
             val spaces = joinedRooms.filter { it.createEventContent?.type == RoomType.Space }
             combine(
                 observeChildren(matrixClient, spaces),
-                observeDirectMessages(matrixClient, joinedRooms, direct),
+                observeDirectMessages(matrixClient, rooms, direct),
                 syncLabelFlow,
             ) { children, directMessages, syncLabel ->
                 MatrixDirectory(
                     channels =
                         joinedRooms
                             .filter { it.createEventContent?.type != RoomType.Space }
-                            .map { ChannelUi(it.roomId.full, it.displayName()) },
+                            .map { RoomUi(it.roomId.full, it.displayName()) },
                     directMessages = directMessages,
                     spaces =
                         spaces.map {
@@ -106,24 +106,30 @@ private fun observeDirectMessages(
     client: MatrixClient,
     rooms: List<Room>,
     mappings: Map<UserId, Set<RoomId>?>,
-): Flow<List<ChannelUi>> {
-    val directRooms = rooms.filter { room -> mappings.values.any { room.roomId in it.orEmpty() } }
+): Flow<List<RoomUi>> {
+    val roomsById = rooms.associateBy { it.roomId }
+    val directRooms =
+        mappings.values
+            .flatMap { it.orEmpty() }
+            .distinct()
+            .filter { roomsById[it]?.membership != Membership.INVITE }
     if (directRooms.isEmpty()) return flowOf(emptyList())
     return combine(
-        directRooms.map { room ->
+        directRooms.map { roomId ->
+            val room = roomsById[roomId]
             val people =
                 mappings
                     .filterValues {
-                        room.roomId in it.orEmpty()
+                        roomId in it.orEmpty()
                     }.keys
                     .filter { it != client.userId }
                     .sortedBy { it.full }
             if (people.isEmpty()) {
-                flowOf(ChannelUi(room.roomId.full, room.displayName(), room.avatarUrl))
+                flowOf(RoomUi(roomId.full, room?.displayName() ?: roomId.full, room?.avatarUrl))
             } else {
-                combine(people.map { person -> client.user.getById(room.roomId, person) }) { profiles ->
-                    ChannelUi(
-                        id = room.roomId.full,
+                combine(people.map { person -> client.user.getById(roomId, person) }) { profiles ->
+                    RoomUi(
+                        id = roomId.full,
                         name =
                             profiles
                                 .mapIndexed {
@@ -140,7 +146,7 @@ private fun observeDirectMessages(
                                     ?.content
                                     ?.avatarUrl
                             } else {
-                                room.avatarUrl
+                                room?.avatarUrl
                             },
                     )
                 }

@@ -47,7 +47,7 @@ internal fun MatrixDirectory.projectDirectory(): RoomDirectoryState {
             .mapTo(mutableSetOf()) { it.id }
     uncategorized[ORPHAN_ROOMS_VIEW_ID] = joinedChannels.filter { it.id !in containedIds }.sortedBy { it.name }
     return RoomDirectoryState(
-        servers = servers.map { ServerUi(it.id, it.name) },
+        servers = servers.map { RailDestinationUi(it.id, it.name) },
         channelsByServer = uncategorized,
         syncStateLabel = syncStateLabel,
         categoriesByServer = categories,
@@ -61,7 +61,7 @@ private fun SpaceChild.validOrder(): String? =
         value.length <= MAX_CHILD_ORDER_LENGTH && value.all { it in ' '..'~' }
     }
 
-private fun List<SpaceChild>.orderedChannels(channels: Map<String, ChannelUi>): List<ChannelUi> =
+private fun List<SpaceChild>.orderedChannels(channels: Map<String, RoomUi>): List<RoomUi> =
     sortedWith(childOrder { channels[it]?.name })
         .mapNotNull { channels[it.id] }
         .distinctBy { it.id }

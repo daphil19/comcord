@@ -99,13 +99,15 @@ class TrixnityMatrixSourceSmokeTest {
         roomId: RoomId,
     ) {
         val otherPerson = UserId("@bob:localhost")
+        val unknownRoom = RoomId("!unknown:localhost")
         client.api.user
             .setAccountData(
-                DirectEventContent(mapOf(otherPerson to setOf(roomId))),
+                DirectEventContent(mapOf(otherPerson to setOf(roomId, unknownRoom))),
                 client.userId,
             ).getOrThrow()
         val direct = source.directory.first { it.directMessages.any { dm -> dm.id == roomId.full } }
-        assertEquals("@bob:localhost", direct.directMessages.single().name)
+        assertEquals("@bob:localhost", direct.directMessages.first { it.id == roomId.full }.name)
+        assertTrue(direct.directMessages.any { it.id == unknownRoom.full && it.name == "@bob:localhost" })
         val projected = direct.projectDirectory()
         assertTrue(projected.channelsByServer.getValue(ALL_ROOMS_VIEW_ID).none { it.id == roomId.full })
         assertTrue(

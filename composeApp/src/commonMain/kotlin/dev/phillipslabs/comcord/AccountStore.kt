@@ -15,12 +15,12 @@ data class AccountState(
     val hiddenViewIds: Set<String> = emptySet(),
     val collapsedCategoryIds: Set<String> = emptySet(),
 ) {
-    val visibleViews: List<ServerUi> get() = BUILT_IN_VIEWS.filter { it.id !in hiddenViewIds }
-    val destinations: List<ServerUi> get() = visibleViews + directory.servers
+    val visibleViews: List<RailDestinationUi> get() = BUILT_IN_VIEWS.filter { it.id !in hiddenViewIds }
+    val destinations: List<RailDestinationUi> get() = visibleViews + directory.servers
     val categories: List<CategoryUi> get() = directory.categoriesByServer[selectedServerId].orEmpty()
-    val uncategorizedChannels: List<ChannelUi> get() = directory.channelsByServer[selectedServerId].orEmpty()
-    val rooms: List<ChannelUi> get() = uncategorizedChannels + categories.flatMap { it.channels }
-    val selectedRoom: ChannelUi? get() =
+    val uncategorizedChannels: List<RoomUi> get() = directory.channelsByServer[selectedServerId].orEmpty()
+    val rooms: List<RoomUi> get() = uncategorizedChannels + categories.flatMap { it.channels }
+    val selectedRoom: RoomUi? get() =
         directory.channelsByServer.values
             .flatten()
             .firstOrNull { it.id == selectedRoomId }

@@ -4,6 +4,7 @@ import de.connect2x.trixnity.client.MatrixClient
 import de.connect2x.trixnity.client.media
 import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.messenger.MatrixMessenger
+import de.connect2x.trixnity.messenger.MatrixMessengerAccountSettings
 import de.connect2x.trixnity.messenger.MatrixMessengerSettingsHolder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ class TrixnityMatrixSource(
 
     override val hiddenViewIds: Flow<Set<String>> =
         settings[matrixClient.userId].map { account ->
-            (account?.get(HIDDEN_VIEWS_KEY) as? JsonArray)?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
+            account.hiddenViews()
         }
 
     override suspend fun setViewHidden(
@@ -31,7 +32,7 @@ class TrixnityMatrixSource(
         hidden: Boolean,
     ) {
         settings.update(matrixClient.userId) { account ->
-            val current = (account[HIDDEN_VIEWS_KEY] as? JsonArray)?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
+            val current = account.hiddenViews()
             val updated = if (hidden) current + id else current - id
             this[HIDDEN_VIEWS_KEY] = JsonArray(updated.sorted().map(::JsonPrimitive))
         }
@@ -68,3 +69,6 @@ fun MatrixMessenger.accountSources(): Flow<MatrixSource?> {
 private const val HIDDEN_VIEWS_KEY = "dev.phillipslabs.comcord.hiddenViews"
 private const val AVATAR_SIZE = 64L
 private const val MAX_AVATAR_BYTES = 2_000_000L
+
+private fun MatrixMessengerAccountSettings?.hiddenViews(): Set<String> =
+    (this?.get(HIDDEN_VIEWS_KEY) as? JsonArray)?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
