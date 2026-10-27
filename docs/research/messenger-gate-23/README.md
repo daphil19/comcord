@@ -36,6 +36,12 @@ pass is claimed. Final handoff edits (including browser listener removal, manual
 layout and explicit imports) have only been reviewed with `git diff --check`.
 Source-compile observations therefore do not validate the final tree.
 
+Static review then made host destruction observable to Compose: closing a host
+removes its rendered room and UI-owned paging effects. Paging now makes at most
+eight older-history requests, waiting for each response, rather than assuming one
+SDK page contains the oldest seed. These are static robustness fixes; they were
+not run on any platform and do not change the UNVERIFIED verdict.
+
 | Target | Source/build observation before handoff | Runtime verdict |
 | --- | --- | --- |
 | Android | Debug APK task completed | UNVERIFIED |
