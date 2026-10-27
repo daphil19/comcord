@@ -60,6 +60,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import de.connect2x.trixnity.messenger.MatrixMessenger
 import de.connect2x.trixnity.messenger.viewmodel.RootRouter
 import de.connect2x.trixnity.messenger.viewmodel.RootViewModel
+import de.connect2x.trixnity.messenger.viewmodel.TextFieldViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMethod
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountState
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
