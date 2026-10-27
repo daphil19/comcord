@@ -36,7 +36,6 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -65,7 +64,6 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMeth
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountState
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
-import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 private val AppBg = Color(0xFF1A1D24)
@@ -113,14 +111,8 @@ private fun CenterStatus(status: String) {
 
 @Composable
 private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
-    val serverField by viewModel.serverUrl.collectAsStateCompat()
-    val discoveryState by viewModel.serverDiscoveryState.collectAsStateCompat()
-
-    LaunchedEffect(serverField.text) {
-        if (serverField.text.isBlank()) {
-            viewModel.serverUrl.update("https://matrix.org")
-        }
-    }
+    val serverField by viewModel.serverUrl.collectAsState()
+    val discoveryState by viewModel.serverDiscoveryState.collectAsState()
 
     val passwordMethod =
         (discoveryState as? AddMatrixAccountViewModel.ServerDiscoveryState.Success)
@@ -183,10 +175,10 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
 
 @Composable
 private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
-    val usernameField by viewModel.username.collectAsStateCompat()
-    val passwordField by viewModel.password.collectAsStateCompat()
-    val canLogin by viewModel.canLogin.collectAsStateCompat()
-    val loginState by viewModel.addMatrixAccountState.collectAsStateCompat()
+    val usernameField by viewModel.username.collectAsState()
+    val passwordField by viewModel.password.collectAsState()
+    val canLogin by viewModel.canLogin.collectAsState()
+    val loginState by viewModel.addMatrixAccountState.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
@@ -197,6 +189,7 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
             value = usernameField.text,
             onValueChange = { viewModel.username.update(it) },
             label = { Text("Username") },
@@ -204,6 +197,7 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
         )
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
             value = passwordField.text,
             onValueChange = { viewModel.password.update(it) },
             label = { Text("Password") },
@@ -535,9 +529,6 @@ private fun ChatPanel(
         }
     }
 }
-
-@Composable
-private fun <T> StateFlow<T>.collectAsStateCompat() = collectAsState()
 
 private fun routeStatus(route: RootRouter.Wrapper): String =
     when (route) {
