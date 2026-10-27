@@ -22,14 +22,14 @@ class AccountStoreTest {
 
             source.emitSnapshot(
                 MatrixDirectory(
-                    channels = listOf(ChannelUi("!lobby:localhost", "Lobby")),
+                    channels = listOf(RoomUi("!lobby:localhost", "Lobby")),
                     syncStateLabel = "Synced",
                 ),
             )
             runCurrent()
 
             assertEquals("@alice:localhost", store.state.value.accountId)
-            assertEquals(listOf(ChannelUi("!lobby:localhost", "Lobby")), store.state.value.rooms)
+            assertEquals(listOf(RoomUi("!lobby:localhost", "Lobby")), store.state.value.rooms)
             assertEquals("Synced", store.state.value.directory.syncStateLabel)
         }
 
@@ -38,7 +38,7 @@ class AccountStoreTest {
         runTest {
             val source = FakeMatrixSource("@alice:localhost")
             val store = AccountStore(source, backgroundScope)
-            source.emitSnapshot(directory(ChannelUi("!one:localhost", "Lobby"), ChannelUi("!two:localhost", "Lobby")))
+            source.emitSnapshot(directory(RoomUi("!one:localhost", "Lobby"), RoomUi("!two:localhost", "Lobby")))
             runCurrent()
             store.selectRoom("!two:localhost")
             assertEquals(
@@ -47,7 +47,7 @@ class AccountStoreTest {
                     ?.id,
             )
 
-            source.emitSnapshot(directory(ChannelUi("!two:localhost", "Renamed")))
+            source.emitSnapshot(directory(RoomUi("!two:localhost", "Renamed")))
             runCurrent()
             assertEquals(
                 "Renamed",
@@ -66,8 +66,8 @@ class AccountStoreTest {
             val bob = FakeMatrixSource("@bob:localhost")
             val aliceStore = AccountStore(alice, backgroundScope)
             val bobStore = AccountStore(bob, backgroundScope)
-            alice.emitSnapshot(directory(ChannelUi("!one:localhost", "Alice's room")))
-            bob.emitSnapshot(directory(ChannelUi("!two:localhost", "Bob's room")))
+            alice.emitSnapshot(directory(RoomUi("!one:localhost", "Alice's room")))
+            bob.emitSnapshot(directory(RoomUi("!two:localhost", "Bob's room")))
             runCurrent()
             aliceStore.selectRoom("!one:localhost")
             aliceStore.logout()
@@ -112,7 +112,7 @@ class AccountStoreTest {
             val store = AccountStore(source, accountScope)
             runCurrent()
             accountScope.cancel()
-            source.emitSnapshot(directory(ChannelUi("!late:localhost", "Late update")))
+            source.emitSnapshot(directory(RoomUi("!late:localhost", "Late update")))
             runCurrent()
             assertEquals(emptyList(), store.state.value.rooms)
         }
@@ -124,7 +124,7 @@ class AccountStoreTest {
             val store = AccountStore(source, backgroundScope)
             source.emitSnapshot(
                 MatrixDirectory(
-                    channels = listOf(ChannelUi("channel", "General")),
+                    channels = listOf(RoomUi("channel", "General")),
                     spaces =
                         listOf(
                             SpaceSnapshot("server", "Server", listOf(SpaceChild("category"))),
@@ -158,10 +158,10 @@ class AccountStoreTest {
                 MatrixDirectory(
                     channels =
                         listOf(
-                            ChannelUi("a", "Alpha"),
-                            ChannelUi("b", "Beta"),
-                            ChannelUi("c", "Charlie"),
-                            ChannelUi("d", "Delta"),
+                            RoomUi("a", "Alpha"),
+                            RoomUi("b", "Beta"),
+                            RoomUi("c", "Charlie"),
+                            RoomUi("d", "Delta"),
                         ),
                     spaces =
                         listOf(
@@ -201,7 +201,7 @@ class AccountStoreTest {
             val store = AccountStore(source, backgroundScope)
             source.emitSnapshot(
                 MatrixDirectory(
-                    channels = listOf(ChannelUi("direct", "Direct"), ChannelUi("nested", "Nested")),
+                    channels = listOf(RoomUi("direct", "Direct"), RoomUi("nested", "Nested")),
                     spaces =
                         listOf(
                             SpaceSnapshot("root", "Root", listOf(SpaceChild("direct"), SpaceChild("category"))),
@@ -267,7 +267,90 @@ class AccountStoreTest {
             assertEquals(emptySet(), store.state.value.collapsedCategoryIds)
         }
 
-    private fun directory(vararg rooms: ChannelUi) =
+    @Test
+    fun viewsSeparateDirectMessagesFromChannelsAndFindNestedOrphans() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            val dm = RoomUi("dm", "Bob", avatarUrl = "mxc://localhost/bob")
+            source.emitSnapshot(
+                MatrixDirectory(
+                    channels =
+                        listOf(
+                            RoomUi("dm", "Room name"),
+                            RoomUi("group", "Group chat"),
+                            RoomUi("nested", "Nested"),
+                        ),
+                    directMessages = listOf(dm),
+                    spaces =
+                        listOf(
+                            SpaceSnapshot("server", "Server", listOf(SpaceChild("dm"), SpaceChild("category"))),
+                            SpaceSnapshot("category", "Category", listOf(SpaceChild("nested"))),
+                        ),
+                ),
+            )
+            runCurrent()
+            assertEquals(
+                listOf("group", "nested"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            store.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            assertEquals(listOf(dm), store.state.value.rooms)
+            store.selectRoom("dm")
+            assertEquals(dm, store.state.value.selectedRoom)
+            source.emitSnapshot(source.directory.value.copy(syncStateLabel = "Synced"))
+            runCurrent()
+            assertEquals(DIRECT_MESSAGES_VIEW_ID, store.state.value.selectedServerId)
+            store.selectServer(ORPHAN_ROOMS_VIEW_ID)
+            assertEquals(
+                listOf("group"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+            store.selectServer("server")
+            assertEquals(
+                listOf("nested"),
+                store.state.value.rooms
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun hiddenViewsSurviveStoreRecreationAndCanBeRestoredPerAccount() =
+        runTest {
+            val source = FakeMatrixSource("alice")
+            val store = AccountStore(source, backgroundScope)
+            runCurrent()
+            assertEquals(BUILT_IN_VIEWS, store.state.value.visibleViews)
+            store.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            store.setViewHidden(DIRECT_MESSAGES_VIEW_ID, true)
+            runCurrent()
+            val restarted = AccountStore(source, backgroundScope)
+            val bob = AccountStore(FakeMatrixSource("bob"), backgroundScope)
+            runCurrent()
+            assertEquals(
+                listOf(ALL_ROOMS_VIEW_ID, ORPHAN_ROOMS_VIEW_ID),
+                restarted.state.value.visibleViews
+                    .map { it.id },
+            )
+            assertEquals(ALL_ROOMS_VIEW_ID, store.state.value.selectedServerId)
+            restarted.selectServer(DIRECT_MESSAGES_VIEW_ID)
+            assertEquals(ALL_ROOMS_VIEW_ID, restarted.state.value.selectedServerId)
+            assertEquals(BUILT_IN_VIEWS, bob.state.value.visibleViews)
+            restarted.setViewHidden(DIRECT_MESSAGES_VIEW_ID, false)
+            runCurrent()
+            assertEquals(BUILT_IN_VIEWS, restarted.state.value.visibleViews)
+            BUILT_IN_VIEWS.forEach { restarted.setViewHidden(it.id, true) }
+            runCurrent()
+            assertEquals(emptyList(), restarted.state.value.visibleViews)
+            assertNull(restarted.state.value.selectedServerId)
+            restarted.setViewHidden(ORPHAN_ROOMS_VIEW_ID, false)
+            runCurrent()
+            assertEquals(ORPHAN_ROOMS_VIEW_ID, restarted.state.value.selectedServerId)
+        }
+
+    private fun directory(vararg rooms: RoomUi) =
         MatrixDirectory(
             channels = rooms.toList(),
             syncStateLabel = "Synced",

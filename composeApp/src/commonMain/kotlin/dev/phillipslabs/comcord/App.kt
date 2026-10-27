@@ -1,5 +1,6 @@
 package dev.phillipslabs.comcord
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,22 +21,38 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +66,7 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountStat
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
 import kotlinx.coroutines.flow.StateFlow
+import org.jetbrains.compose.resources.decodeToImageBitmap
 
 private val AppBg = Color(0xFF1A1D24)
 private val ServerRailBg = Color(0xFF12141A)
@@ -237,22 +255,11 @@ private fun MainShell(store: AccountStore) {
         Row(modifier = Modifier.fillMaxSize()) {
             ServerRail(
                 compact = compact,
-                servers = listOf(ServerUi(ALL_ROOMS_VIEW_ID, "All Rooms")) + roomDirectory.servers,
-                selectedServerId = state.selectedServerId,
-                onSelectServer = store::selectServer,
-                onLogout = store::logout,
+                state = state,
+                store = store,
             )
             if (!compact) {
-                ChannelPanel(
-                    status = roomDirectory.syncStateLabel,
-                    name = roomDirectory.servers.firstOrNull { it.id == state.selectedServerId }?.name ?: "All Rooms",
-                    channels = state.uncategorizedChannels,
-                    categories = state.categories,
-                    collapsedCategoryIds = state.collapsedCategoryIds,
-                    onToggleCategory = store::toggleCategory,
-                    selectedRoomId = state.selectedRoomId,
-                    onSelectRoom = { store.selectRoom(it.id) },
-                )
+                ChannelPanel(state, store)
             }
             ChatPanel(
                 selectedChannel = state.selectedRoom?.name ?: "Select a Channel",
@@ -266,10 +273,8 @@ private fun MainShell(store: AccountStore) {
 @Composable
 private fun ServerRail(
     compact: Boolean,
-    servers: List<ServerUi>,
-    selectedServerId: String,
-    onSelectServer: (String) -> Unit,
-    onLogout: () -> Unit,
+    state: AccountState,
+    store: AccountStore,
 ) {
     Column(
         modifier =
@@ -281,7 +286,7 @@ private fun ServerRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        servers.forEach { server ->
+        state.destinations.forEach { server ->
             val label =
                 server.name
                     .split(' ')
@@ -291,49 +296,78 @@ private fun ServerRail(
                     .uppercase()
             ServerDot(
                 label = label,
-                active = server.id == selectedServerId,
-                onClick = { onSelectServer(server.id) },
+                active = server.id == state.selectedServerId,
+                description = server.name,
+                onClick = { store.selectServer(server.id) },
             )
         }
         Spacer(Modifier.weight(1f))
+        ViewVisibilityMenu(state, store)
         ServerDot(
             label = "LO",
+            description = "Log out",
             active = false,
-            onClick = onLogout,
+            onClick = store::logout,
         )
     }
 }
 
 @Composable
+private fun ViewVisibilityMenu(
+    state: AccountState,
+    store: AccountStore,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        ServerDot("V", false, "Show or hide Views") { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            BUILT_IN_VIEWS.forEach { view ->
+                val visible = view.id !in state.hiddenViewIds
+                DropdownMenuItem(
+                    text = { Text(view.name) },
+                    leadingIcon = { Checkbox(checked = visible, onCheckedChange = null) },
+                    onClick = { store.setViewHidden(view.id, visible) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun ServerDot(
     label: String,
     active: Boolean,
+    description: String,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(if (active) 16.dp else 24.dp))
-                .background(if (active) Accent else Color(0xFF2A2D36))
-                .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.End),
+        tooltip = { PlainTooltip { Text(description) } },
+        state = rememberTooltipState(),
     ) {
-        Text(text = label, color = TextStrong, fontWeight = FontWeight.Bold)
+        Box(
+            modifier =
+                Modifier
+                    .semantics { contentDescription = description }
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(if (active) 16.dp else 24.dp))
+                    .background(if (active) Accent else Color(0xFF2A2D36))
+                    .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = label, color = TextStrong, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
 @Composable
 private fun ChannelPanel(
-    status: String,
-    name: String,
-    channels: List<ChannelUi>,
-    categories: List<CategoryUi>,
-    collapsedCategoryIds: Set<String>,
-    onToggleCategory: (String) -> Unit,
-    selectedRoomId: String?,
-    onSelectRoom: (ChannelUi) -> Unit,
+    state: AccountState,
+    store: AccountStore,
 ) {
+    val name = state.destinations.firstOrNull { it.id == state.selectedServerId }?.name ?: "Select a View or Server"
+    val directMessages = state.selectedServerId == DIRECT_MESSAGES_VIEW_ID
     Column(
         modifier =
             Modifier
@@ -344,7 +378,7 @@ private fun ChannelPanel(
     ) {
         Text(name, color = TextStrong, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
-        StatusBadge(status)
+        StatusBadge(state.directory.syncStateLabel)
         Spacer(modifier = Modifier.height(16.dp))
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -353,17 +387,18 @@ private fun ChannelPanel(
             verticalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(bottom = 12.dp),
         ) {
-            items(channels.size) { index ->
-                val channel = channels[index]
+            items(state.uncategorizedChannels.size) { index ->
+                val channel = state.uncategorizedChannels[index]
                 ChannelRow(
-                    roomName = channel.name,
-                    selected = selectedRoomId == channel.id,
-                    onClick = { onSelectRoom(channel) },
+                    channel = channel,
+                    selected = state.selectedRoomId == channel.id,
+                    directMessage = directMessages,
+                    store = store,
                 )
             }
-            categories.forEach { category ->
+            state.categories.forEach { category ->
                 item(key = "category:${category.id}") {
-                    val collapsed = category.id in collapsedCategoryIds
+                    val collapsed = category.id in state.collapsedCategoryIds
                     Text(
                         text = "${if (collapsed) "▸" else "▾"} ${category.name}",
                         color = TextMuted,
@@ -371,16 +406,16 @@ private fun ChannelPanel(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    onToggleCategory(
+                                    store.toggleCategory(
                                         category.id,
                                     )
                                 }.padding(vertical = 8.dp),
                     )
                 }
-                if (category.id !in collapsedCategoryIds) {
+                if (category.id !in state.collapsedCategoryIds) {
                     items(category.channels.size) { index ->
                         val channel = category.channels[index]
-                        ChannelRow(channel.name, selectedRoomId == channel.id) { onSelectRoom(channel) }
+                        ChannelRow(channel, state.selectedRoomId == channel.id, false, store)
                     }
                 }
             }
@@ -413,9 +448,10 @@ private fun StatusBadge(status: String) {
 
 @Composable
 private fun ChannelRow(
-    roomName: String,
+    channel: RoomUi,
     selected: Boolean,
-    onClick: () -> Unit,
+    directMessage: Boolean,
+    store: AccountStore,
 ) {
     Row(
         modifier =
@@ -423,18 +459,48 @@ private fun ChannelRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (selected) Color(0xFF343A47) else Color(0xFF2A2E37))
-                .clickable(onClick = onClick)
+                .clickable { store.selectRoom(channel.id) }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (directMessage) {
+            DirectMessageAvatar(channel, store)
+            Spacer(Modifier.width(8.dp))
+        }
         Text(
-            text = "#$roomName",
+            text = if (directMessage) channel.name else "#${channel.name}",
             color = TextStrong,
             fontSize = 13.sp,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun DirectMessageAvatar(
+    channel: RoomUi,
+    store: AccountStore,
+) {
+    val bitmap by produceState<ImageBitmap?>(null, channel.avatarUrl, store) {
+        value = null
+        val url = channel.avatarUrl
+        if (url != null) {
+            val bytes = store.loadAvatar(url)
+            value = bytes?.let { runCatching { it.decodeToImageBitmap() }.getOrNull() }
+        }
+    }
+    Box(
+        modifier = Modifier.size(28.dp).clip(CircleShape).background(Accent),
+        contentAlignment = Alignment.Center,
+    ) {
+        val image = bitmap
+        if (image == null) {
+            Text(channel.name.take(1).uppercase(), color = TextStrong)
+        } else {
+            Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
     }
 }
 

@@ -5,7 +5,12 @@ import de.connect2x.trixnity.client.flattenValues
 import de.connect2x.trixnity.client.room
 import de.connect2x.trixnity.client.room.getAllState
 import de.connect2x.trixnity.client.store.Room
+import de.connect2x.trixnity.client.user
+import de.connect2x.trixnity.client.user.getAccountData
 import de.connect2x.trixnity.clientserverapi.client.SyncState
+import de.connect2x.trixnity.core.model.RoomId
+import de.connect2x.trixnity.core.model.UserId
+import de.connect2x.trixnity.core.model.events.m.DirectEventContent
 import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent.RoomType
 import de.connect2x.trixnity.core.model.events.m.room.Membership
 import de.connect2x.trixnity.core.model.events.m.space.ChildEventContent
@@ -36,27 +41,34 @@ internal fun observeRoomDirectory(matrixClient: MatrixClient): Flow<MatrixDirect
             .flattenValues()
             .map { rooms -> rooms.toList() }
 
-    return roomsFlow.flatMapLatest { rooms ->
-        val joinedRooms = rooms.filter { it.membership == Membership.JOIN }
-        val spaces = joinedRooms.filter { it.createEventContent?.type == RoomType.Space }
-        combine(observeChildren(matrixClient, spaces), syncLabelFlow) { children, syncLabel ->
-            MatrixDirectory(
-                channels =
-                    joinedRooms
-                        .filter { it.createEventContent?.type != RoomType.Space && !it.isDirect }
-                        .map { ChannelUi(it.roomId.full, it.displayName()) },
-                spaces =
-                    spaces.map {
-                        SpaceSnapshot(
-                            it.roomId.full,
-                            it.displayName(),
-                            children[it.roomId.full].orEmpty(),
-                        )
-                    },
-                syncStateLabel = syncLabel,
-            )
+    val directFlow = matrixClient.user.getAccountData<DirectEventContent>()
+    return combine(roomsFlow, directFlow) { rooms, direct -> rooms to direct?.mappings.orEmpty() }
+        .flatMapLatest { (rooms, direct) ->
+            val joinedRooms = rooms.filter { it.membership == Membership.JOIN }
+            val spaces = joinedRooms.filter { it.createEventContent?.type == RoomType.Space }
+            combine(
+                observeChildren(matrixClient, spaces),
+                observeDirectMessages(matrixClient, rooms, direct),
+                syncLabelFlow,
+            ) { children, directMessages, syncLabel ->
+                MatrixDirectory(
+                    channels =
+                        joinedRooms
+                            .filter { it.createEventContent?.type != RoomType.Space }
+                            .map { RoomUi(it.roomId.full, it.displayName()) },
+                    directMessages = directMessages,
+                    spaces =
+                        spaces.map {
+                            SpaceSnapshot(
+                                it.roomId.full,
+                                it.displayName(),
+                                children[it.roomId.full].orEmpty(),
+                            )
+                        },
+                    syncStateLabel = syncLabel,
+                )
+            }
         }
-    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -87,3 +99,58 @@ private fun observeChildren(
     }
 
 private fun Room.displayName(): String = name?.explicitName?.takeIf { it.isNotBlank() } ?: roomId.full
+
+/** m.direct is authoritative, including for group chats and rooms linked by a space. */
+@OptIn(ExperimentalCoroutinesApi::class)
+private fun observeDirectMessages(
+    client: MatrixClient,
+    rooms: List<Room>,
+    mappings: Map<UserId, Set<RoomId>?>,
+): Flow<List<RoomUi>> {
+    val roomsById = rooms.associateBy { it.roomId }
+    val directRooms =
+        mappings.values
+            .flatMap { it.orEmpty() }
+            .distinct()
+            .filter { roomsById[it]?.membership != Membership.INVITE }
+    if (directRooms.isEmpty()) return flowOf(emptyList())
+    return combine(
+        directRooms.map { roomId ->
+            val room = roomsById[roomId]
+            val people =
+                mappings
+                    .filterValues {
+                        roomId in it.orEmpty()
+                    }.keys
+                    .filter { it != client.userId }
+                    .sortedBy { it.full }
+            if (people.isEmpty()) {
+                flowOf(RoomUi(roomId.full, room?.displayName() ?: roomId.full, room?.avatarUrl))
+            } else {
+                combine(people.map { person -> client.user.getById(roomId, person) }) { profiles ->
+                    RoomUi(
+                        id = roomId.full,
+                        name =
+                            profiles
+                                .mapIndexed {
+                                    index,
+                                    profile,
+                                    ->
+                                    profile?.name ?: people[index].full
+                                }.joinToString(", "),
+                        avatarUrl =
+                            if (people.size == 1) {
+                                profiles
+                                    .single()
+                                    ?.event
+                                    ?.content
+                                    ?.avatarUrl
+                            } else {
+                                room?.avatarUrl
+                            },
+                    )
+                }
+            }
+        },
+    ) { it.toList() }
+}

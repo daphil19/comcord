@@ -3,10 +3,16 @@ package dev.phillipslabs.comcord
 /** Child links alone define membership. Each walk owns its visited set, so cycles terminate. */
 internal fun MatrixDirectory.projectDirectory(): RoomDirectoryState {
     val spacesById = spaces.associateBy { it.id }
-    val channelsById = channels.associateBy { it.id }
+    val directIds = directMessages.mapTo(mutableSetOf()) { it.id }
+    val joinedChannels = channels.filter { it.id !in directIds }
+    val channelsById = joinedChannels.associateBy { it.id }
     val nestedSpaceIds = spaces.flatMap { it.children }.map { it.id }.toSet()
     val servers = spaces.filter { it.id !in nestedSpaceIds }.sortedBy { it.name }
-    val uncategorized = mutableMapOf(ALL_ROOMS_VIEW_ID to channels.sortedBy { it.name })
+    val uncategorized =
+        mutableMapOf(
+            ALL_ROOMS_VIEW_ID to joinedChannels.sortedBy { it.name },
+            DIRECT_MESSAGES_VIEW_ID to directMessages.sortedBy { it.name },
+        )
     val categories = mutableMapOf<String, List<CategoryUi>>()
     for (server in servers) {
         val directChannels = server.children.orderedChannels(channelsById)
@@ -36,8 +42,12 @@ internal fun MatrixDirectory.projectDirectory(): RoomDirectoryState {
                     )
                 }
     }
+    val containedIds =
+        (servers.flatMap { uncategorized[it.id].orEmpty() } + categories.values.flatten().flatMap { it.channels })
+            .mapTo(mutableSetOf()) { it.id }
+    uncategorized[ORPHAN_ROOMS_VIEW_ID] = joinedChannels.filter { it.id !in containedIds }.sortedBy { it.name }
     return RoomDirectoryState(
-        servers = servers.map { ServerUi(it.id, it.name) },
+        servers = servers.map { RailDestinationUi(it.id, it.name) },
         channelsByServer = uncategorized,
         syncStateLabel = syncStateLabel,
         categoriesByServer = categories,
@@ -51,7 +61,7 @@ private fun SpaceChild.validOrder(): String? =
         value.length <= MAX_CHILD_ORDER_LENGTH && value.all { it in ' '..'~' }
     }
 
-private fun List<SpaceChild>.orderedChannels(channels: Map<String, ChannelUi>): List<ChannelUi> =
+private fun List<SpaceChild>.orderedChannels(channels: Map<String, RoomUi>): List<RoomUi> =
     sortedWith(childOrder { channels[it]?.name })
         .mapNotNull { channels[it.id] }
         .distinctBy { it.id }
