@@ -79,3 +79,22 @@ also exposed transparent-background text contrast despite passing semantic UI
 assertions; adding the Material3 Surface made content readable. The final images
 were visually reviewed. This is why semantic visibility alone was not counted as
 rendering evidence.
+
+## Review follow-up: teardown failures
+
+Resource acquisition is guarded from Synapse startup onward, including temporary
+storage and Messenger creation. A failed setup cancels the Account scope and
+releases any acquired Messenger, container and storage in a non-cancellable
+cleanup context. Nested `finally` blocks ensure a Messenger shutdown exception
+cannot skip container removal or storage deletion. The same release function is
+used by normal fixture closure; a setup error is preserved with any cleanup error
+attached as suppressed evidence.
+
+Two temporary faults were executed through the actual fixture entry/close seam:
+throw instead of returning a Messenger from creation, and throw after its SDK
+shutdown completes. Each run failed with the intended injected exception, and
+before/after snapshots confirmed no new fixture storage directories or Synapse
+containers remained. The temporary source edits were restored, then the normal
+Compose integration, JVM Detekt and ktlint checks were rerun. No test-only factory
+interface or production injection hook was added for these checks. Cleanup inside
+a Messenger factory that never returns a handle remains the SDK's responsibility.
