@@ -27,8 +27,8 @@ are raised so history seeding does not wait on ordinary-user throttling.
 
 The command passed in 10 seconds. `matrixSmokeTest` remains explicitly runnable;
 ordinary `jvmTest` excludes this `*SmokeTest`. Screenshots are regenerated under
-`composeApp/build/gate-evidence/21`. The four images in this directory preserve the
-observed render from the successful run. No shared or production Kotlin code was
+`composeApp/build/gate-evidence/21` and remain local build artifacts. The written
+observations below record the visually reviewed run; PNGs are not tracked. No shared or production Kotlin code was
 changed, so verification covers the affected JVM test fixture and its lint rules;
 this run makes no Android, browser or iOS compilation/runtime claim.
 
@@ -36,11 +36,11 @@ this run makes no Android, browser or iOS compilation/runtime claim.
 
 | #21 requirement | Outcome and evidence |
 | --- | --- |
-| Sender, avatar/time/body; initial, paged and incoming events | PASS. Actual Messenger holder and element VMs render sender name, avatar initials fallback, formatted time and message body. Forty messages are seeded before sync; the initial window (configured limit five) excludes message 0. UI paging then renders message 0; an API-sent incoming event appears without recreating the VM. See [initial](initial.png), [paged](paged.png) and [incoming](incoming.png). No uploaded-image avatar was seeded; the observed avatar path is the initials fallback. |
-| Comcord selection A to B; obsolete work disposed; late results cannot replace B | PASS. Channel buttons call the existing `AccountStore.selectRoom`; keyed Compose creates the selected room VM. A has a suspended manual `loadAfter` when B is selected. A's UI paging loop exits and all room-context coroutine descendants disappear. Late A and incoming B events sync; only B appears and the old A VM stays frozen. See [switched](switched.png). |
+| Sender, avatar/time/body; initial, paged and incoming events | PASS. Actual Messenger holder and element VMs render sender name, avatar initials fallback, formatted time and message body. Forty messages are seeded before sync; the initial window (configured limit five) excludes message 0. UI paging then renders message 0; an API-sent incoming event appears without recreating the VM. No uploaded-image avatar was seeded; the observed avatar path is the initials fallback. |
+| Comcord selection A to B; obsolete work disposed; late results cannot replace B | PASS. Channel buttons call the existing `AccountStore.selectRoom`; keyed Compose creates the selected room VM. A has a suspended manual `loadAfter` when B is selected. A's UI paging loop exits and all room-context coroutine descendants disappear. Late A and incoming B events sync; only B appears and the old A VM stays frozen. |
 | One explicit SDK room lifecycle and viewport mode; destruction cleans room work | PASS. One `LifecycleRegistry` per selected room is resumed on creation and destroyed by `DisposableEffect.onDispose`. `timelineViewStateSupported = false` selects only manual paging. Destroying the room UI stops its paging loop and removes SDK room-scope descendants. After another real sync event, the disposed B VM remains unchanged. |
 | Actual Messenger VM in Compose; one selection authority; no copied timeline state | PASS. `TimelineViewModelFactory.create` constructs the real VM from the Messenger Koin graph. Compose collects `vm.elements` and each holder's `element`, `sender`, and related flows directly. The existing AccountStore is the sole room-selection authority. Retained session handles and atomic pending-call counts are test evidence, not another event/outbox/paging model. No Messenger Main/room router is created. |
-| Setup, outcomes, obligations and runnable fixture preserved separately | PASS. This document, the experimental branch's JVM fixture, reproducible command and screenshots preserve the evidence outside production delivery. |
+| Setup, outcomes, obligations and runnable fixture preserved separately | PASS. This document, the experimental branch's JVM fixture, reproducible command and written observations preserve the evidence outside production delivery. |
 | Stop if substantial duplicate orchestration is required | PASS. No duplicate timeline state, SDK navigation owner or protocol implementation was needed. The remaining glue is room-context lifetime, direct rendering and the selected manual viewport contract. |
 | Neither deliver #6 nor merge/close PR #19 | PASS. No production timeline files or PR #19 changes are included. |
 
