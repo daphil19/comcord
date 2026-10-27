@@ -24,11 +24,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -327,6 +333,7 @@ private fun ViewVisibilityMenu(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServerDot(
     label: String,
@@ -334,17 +341,23 @@ private fun ServerDot(
     description: String,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .semantics { contentDescription = description }
-                .size(48.dp)
-                .clip(RoundedCornerShape(if (active) 16.dp else 24.dp))
-                .background(if (active) Accent else Color(0xFF2A2D36))
-                .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.End),
+        tooltip = { PlainTooltip { Text(description) } },
+        state = rememberTooltipState(),
     ) {
-        Text(text = label, color = TextStrong, fontWeight = FontWeight.Bold)
+        Box(
+            modifier =
+                Modifier
+                    .semantics { contentDescription = description }
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(if (active) 16.dp else 24.dp))
+                    .background(if (active) Accent else Color(0xFF2A2D36))
+                    .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = label, color = TextStrong, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
