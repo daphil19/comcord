@@ -91,6 +91,10 @@ class SynapseContainer : AutoCloseable {
             registration_shared_secret: smoke-test-secret
             macaroon_secret_key: smoke-test-macaroon
             suppress_key_server_warning: true
+            # History fixtures send several pages without waiting for production rate limits.
+            rc_message:
+              per_second: 100
+              burst_count: 1000
             """.trimIndent(),
         )
     }

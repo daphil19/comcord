@@ -8,6 +8,7 @@ import de.connect2x.trixnity.core.model.RoomId
 import de.connect2x.trixnity.core.model.UserId
 import de.connect2x.trixnity.core.model.events.m.DirectEventContent
 import de.connect2x.trixnity.core.model.events.m.room.CreateEventContent
+import de.connect2x.trixnity.core.model.events.m.room.RoomMessageEventContent
 import de.connect2x.trixnity.core.model.events.m.space.ChildEventContent
 import de.connect2x.trixnity.core.model.events.m.space.ParentEventContent
 import de.connect2x.trixnity.messenger.MatrixClients
@@ -21,7 +22,11 @@ import de.connect2x.trixnity.messenger.secrets.SecretByteArraysImpl
 import de.connect2x.trixnity.messenger.settings.FileSystemSettingsStorage
 import de.connect2x.trixnity.messenger.util.RootPath
 import io.ktor.http.Url
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.FileSystem
@@ -78,6 +83,7 @@ class TrixnityMatrixSourceSmokeTest {
                             val source = messenger.accountSources().first { it != null }!!
                             assertEquals("@alice:localhost", source.accountId)
                             assertHierarchy(source, serverId, roomId)
+                            assertTimeline(client, source, roomId)
                             assertDirectMessages(client, source, serverId, roomId)
                             assertViewPersistence(client, storage)
                             source.logout().getOrThrow()
@@ -91,6 +97,47 @@ class TrixnityMatrixSourceSmokeTest {
                 }
             }
         }
+
+    private suspend fun assertTimeline(
+        client: MatrixClient,
+        source: MatrixSource,
+        roomId: RoomId,
+    ) = coroutineScope {
+        val bodies = (1..40).map { "Message $it" }
+        for (body in bodies) {
+            client.api.room
+                .sendMessageEvent(roomId, RoomMessageEventContent.TextBased.Text(body))
+                .getOrThrow()
+        }
+        val timeline = source.timeline(roomId.full)
+        val observed = MutableStateFlow(TimelineSnapshot(isLoading = true))
+        val collection = launch { timeline.snapshots.collect { observed.value = it } }
+        try {
+            val initial = observed.first { it.messages.lastOrNull()?.body == "Message 40" }
+            assertTrue(initial.canLoadOlder)
+            assertEquals("@alice:localhost", initial.messages.last().senderId)
+            assertTrue(
+                initial.messages
+                    .last()
+                    .senderName
+                    .isNotBlank(),
+            )
+            assertTrue(initial.messages.last().timestamp > 0)
+            while (observed.value.canLoadOlder) {
+                val previous = observed.value
+                timeline.loadOlder()
+                observed.first { it != previous }
+            }
+            assertEquals(bodies, observed.value.messages.map { it.body })
+            client.api.room
+                .sendMessageEvent(roomId, RoomMessageEventContent.TextBased.Text("Incoming"))
+                .getOrThrow()
+            val incoming = observed.first { it.messages.lastOrNull()?.body == "Incoming" }
+            assertEquals(bodies + "Incoming", incoming.messages.map { it.body })
+        } finally {
+            collection.cancelAndJoin()
+        }
+    }
 
     private suspend fun assertDirectMessages(
         client: MatrixClient,

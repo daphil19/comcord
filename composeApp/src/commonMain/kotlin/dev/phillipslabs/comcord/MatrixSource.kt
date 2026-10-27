@@ -13,6 +13,8 @@ interface MatrixSource {
         hidden: Boolean,
     )
 
+    fun timeline(roomId: String): RoomTimeline
+
     suspend fun loadAvatar(url: String): ByteArray?
 
     suspend fun logout(): Result<Unit>

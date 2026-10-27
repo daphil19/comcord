@@ -38,6 +38,8 @@ class TrixnityMatrixSource(
         }
     }
 
+    override fun timeline(roomId: String): RoomTimeline = TrixnityRoomTimeline(matrixClient, roomId)
+
     override suspend fun loadAvatar(url: String): ByteArray? =
         try {
             matrixClient.media

@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -45,6 +47,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,13 +69,14 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountStat
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import kotlin.time.Instant
 
 private val AppBg = Color(0xFF1A1D24)
 private val ServerRailBg = Color(0xFF12141A)
 private val ChannelPanelBg = Color(0xFF21252E)
 private val ChatPanelBg = Color(0xFF2A2E38)
-private val ComposerBg = Color(0xFF3A3F4B)
 private val Accent = Color(0xFF4E69FF)
 private val TextStrong = Color(0xFFE6E8EE)
 private val TextMuted = Color(0xFFA7ACB7)
@@ -247,8 +251,6 @@ private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
 @Composable
 private fun MainShell(store: AccountStore) {
     val state by store.state.collectAsState()
-    val roomDirectory = state.directory
-    val roomsForServer = state.rooms
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compact = maxWidth < 900.dp
 
@@ -263,8 +265,8 @@ private fun MainShell(store: AccountStore) {
             }
             ChatPanel(
                 selectedChannel = state.selectedRoom?.name ?: "Select a Channel",
-                roomsCount = roomsForServer.size,
-                syncStateLabel = roomDirectory.syncStateLabel,
+                timeline = state.timeline,
+                store = store,
             )
         }
     }
@@ -507,31 +509,98 @@ private fun DirectMessageAvatar(
 @Composable
 private fun ChatPanel(
     selectedChannel: String,
-    roomsCount: Int,
-    syncStateLabel: String,
+    timeline: RoomTimelineUi?,
+    store: AccountStore,
 ) {
     Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(ChatPanelBg)
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+        modifier = Modifier.fillMaxSize().background(ChatPanelBg).padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
-        Text(text = selectedChannel, color = TextStrong, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.height(14.dp))
-        Text("Synced rooms in view: $roomsCount", color = TextMuted)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("State: $syncStateLabel", color = TextMuted)
-        Spacer(modifier = Modifier.weight(1f))
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(ComposerBg)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            Text(text = "Timeline view next", color = TextMuted)
+        Text(selectedChannel, color = TextStrong, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(14.dp))
+        if (timeline == null) {
+            Text("Choose a Channel or DM to read messages.", color = TextMuted)
+        } else {
+            key(timeline.roomId) {
+                MessageTimeline(timeline, store, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageTimeline(
+    timeline: RoomTimelineUi,
+    store: AccountStore,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(listState, timeline.messages.size, timeline.canLoadOlder, timeline.isLoadingOlder, timeline.error) {
+        if (timeline.canRequestOlder && timeline.error == null) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.key == "history" } }
+                .distinctUntilChanged()
+                .collect { atTop -> if (atTop) store.loadOlderMessages() }
+        }
+    }
+    LazyColumn(
+        state = listState,
+        reverseLayout = true,
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(vertical = 12.dp),
+    ) {
+        items(timeline.messages.asReversed(), key = { "message:${it.id}" }) { message ->
+            MessageRow(message, store)
+        }
+        item(key = "history") {
+            Column {
+                Text(
+                    when {
+                        timeline.isLoading -> "Loading messages…"
+                        timeline.isLoadingOlder -> "Loading older messages…"
+                        timeline.canLoadOlder -> "Scroll up for older messages"
+                        timeline.messages.isEmpty() -> "No messages yet"
+                        else -> "Start of conversation"
+                    },
+                    color = TextMuted,
+                )
+                timeline.error?.let { error ->
+                    Text(error, color = TextMuted)
+                    Button(onClick = {
+                        if (timeline.messages.isEmpty()) {
+                            store.selectRoom(
+                                timeline.roomId,
+                            )
+                        } else {
+                            store.loadOlderMessages()
+                        }
+                    }) { Text("Retry") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageRow(
+    message: MessageUi,
+    store: AccountStore,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        DirectMessageAvatar(RoomUi(message.senderId, message.senderName, message.avatarUrl), store)
+        Column {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(message.senderName, color = TextStrong, fontWeight = FontWeight.SemiBold)
+                Text(
+                    Instant
+                        .fromEpochMilliseconds(message.timestamp)
+                        .toString()
+                        .replace('T', ' ')
+                        .replace("Z", " UTC"),
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                )
+            }
+            Text(message.body, color = TextStrong)
         }
     }
 }
