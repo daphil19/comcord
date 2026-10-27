@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0005: Messenger-First Matrix Workflows](0005-messenger-first-matrix-workflows.md).
+
+The original decision and rationale below are preserved as history. ADR 0005
+retains Messenger but replaces the broad preference for Comcord-owned feature
+presentation models with reuse of Messenger view models where they fit.
 
 ## Decision
 
