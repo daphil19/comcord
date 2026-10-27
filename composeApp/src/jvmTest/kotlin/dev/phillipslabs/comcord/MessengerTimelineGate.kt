@@ -10,6 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -27,10 +28,16 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
 import de.connect2x.trixnity.client.MatrixClient
+import de.connect2x.trixnity.client.room
+import de.connect2x.trixnity.client.room.message.text
 import de.connect2x.trixnity.clientserverapi.client.MatrixClientAuthProviderData
 import de.connect2x.trixnity.clientserverapi.client.classicLoginWithPassword
 import de.connect2x.trixnity.clientserverapi.model.authentication.IdentifierType
 import de.connect2x.trixnity.core.model.RoomId
+import de.connect2x.trixnity.core.model.events.InitialStateEvent
+import de.connect2x.trixnity.core.model.events.m.room.EncryptedMessageEventContent
+import de.connect2x.trixnity.core.model.events.m.room.EncryptionEventContent
+import de.connect2x.trixnity.core.model.events.m.room.HistoryVisibilityEventContent
 import de.connect2x.trixnity.core.model.events.m.room.RoomMessageEventContent
 import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.messenger.MatrixMessenger
@@ -44,6 +51,10 @@ import de.connect2x.trixnity.messenger.viewmodel.MatrixClientViewModelContextImp
 import de.connect2x.trixnity.messenger.viewmodel.room.timeline.TimelineViewModel
 import de.connect2x.trixnity.messenger.viewmodel.room.timeline.TimelineViewModelFactory
 import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.BaseTimelineElementHolderViewModel
+import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.OutboxElementHolderViewModel
+import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.TimelineElementHolderViewModel
+import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.message.EncryptedErrorTimelineElementViewModel
+import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.message.EncryptedWaitTimelineElementViewModel
 import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.message.RoomMessageTimelineElementViewModel
 import io.ktor.http.Url
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +63,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -76,6 +90,7 @@ class MessengerTimelineGate private constructor(
     val roomB: RoomId,
     private val accountScope: CoroutineScope,
     val store: AccountStore,
+    val sendGate: SendFaultProxy?,
 ) : AutoCloseable {
     // Handles retained only for lifecycle evidence; no events or SDK presentation state are copied.
     val sessions = mutableListOf<Session>()
@@ -90,6 +105,9 @@ class MessengerTimelineGate private constructor(
     ) {
         val pendingLoads = AtomicInteger()
     }
+
+    var encryptedRoom by mutableStateOf<RoomId?>(null)
+        private set
 
     var visible by mutableStateOf(true)
 
@@ -130,6 +148,9 @@ class MessengerTimelineGate private constructor(
                     Row {
                         Button(onClick = { store.selectRoom(roomA.full) }) { Text("Channel A") }
                         Button(onClick = { store.selectRoom(roomB.full) }) { Text("Channel B") }
+                        encryptedRoom?.let { room ->
+                            Button(onClick = { store.selectRoom(room.full) }) { Text("Encrypted Channel") }
+                        }
                         Button(onClick = { visible = false }) { Text("Destroy fixture") }
                     }
                     account.selectedRoomId?.takeIf { visible }?.let { selected ->
@@ -177,6 +198,15 @@ class MessengerTimelineGate private constructor(
                 onClick = { scope.launch { vm.loadBefore() } },
             ) { Text("Older messages") }
             error?.let { Text(it) }
+            val input = vm.inputAreaViewModel
+            val text by input.textField.collectAsState()
+            val enabled by input.isSendEnabled.collectAsState()
+            TextField(
+                value = text.text,
+                onValueChange = { input.textField.update(it) },
+                modifier = Modifier.testTag("composer"),
+            )
+            Button(onClick = { input.sendMessage() }, enabled = enabled) { Text("Send") }
             LazyColumn(Modifier.testTag("timeline")) {
                 items(elements, key = { it.key }) { holder -> Message(holder) }
             }
@@ -199,7 +229,21 @@ class MessengerTimelineGate private constructor(
             }
             Column {
                 Text("${sender?.name.orEmpty()} ${holder.formattedTime}")
-                Text((element as? RoomMessageTimelineElementViewModel<*>)?.body ?: "Loading message")
+                Text(
+                    when (val value = element) {
+                        is RoomMessageTimelineElementViewModel<*> -> value.body
+                        is EncryptedWaitTimelineElementViewModel -> "Unable to decrypt message: waiting for keys"
+                        is EncryptedErrorTimelineElementViewModel -> "Unable to decrypt message: ${value.error}"
+                        else -> "Loading message"
+                    },
+                )
+                val sent by holder.isSent.collectAsState()
+                val sendError by holder.sendError.collectAsState()
+                if (!sent) Text(if (sendError == null) "Sending" else "Failed: $sendError")
+                (holder as? OutboxElementHolderViewModel)?.let { outbox ->
+                    val retry by outbox.canRetrySend.collectAsState()
+                    if (retry) Button(onClick = { outbox.retrySend() }) { Text("Retry") }
+                }
             }
         }
     }
@@ -208,6 +252,112 @@ class MessengerTimelineGate private constructor(
         current?.vm?.elements?.value?.any {
             (it.element.value as? RoomMessageTimelineElementViewModel<*>)?.body == body
         } == true
+
+    fun hasUndecryptable(): Boolean =
+        current?.vm?.elements?.value?.any {
+            it.element.value is EncryptedErrorTimelineElementViewModel ||
+                it.element.value is EncryptedWaitTimelineElementViewModel
+        } == true
+
+    suspend fun prepareEncryptedChannel() =
+        withTimeout(90_000) {
+            synapse.register("bob", "bobpass")
+            val clients = messenger.di.get<MatrixClients>()
+            val auth =
+                MatrixClientAuthProviderData
+                    .classicLoginWithPassword(
+                        baseUrl = Url(synapse.url),
+                        identifier = IdentifierType.User("bob"),
+                        password = "bobpass",
+                    ).getOrThrow()
+            check(clients.create(auth) == MatrixClients.CreateResult.Success)
+            val bob =
+                clients
+                    .first { values -> values.values.any { it.userId.full == "@bob:localhost" } }
+                    .values
+                    .first { it.userId.full == "@bob:localhost" }
+            bob.startSync()
+            val room =
+                bob.api.room
+                    .createRoom(
+                        name = "Encrypted Gate",
+                        initialState =
+                            listOf(
+                                InitialStateEvent(EncryptionEventContent(), ""),
+                                InitialStateEvent(
+                                    HistoryVisibilityEventContent(
+                                        HistoryVisibilityEventContent.HistoryVisibility.SHARED,
+                                    ),
+                                    "",
+                                ),
+                            ),
+                    ).getOrThrow()
+            bob.room.getById(room).first { it != null }
+            val transaction = bob.room.sendMessage(room) { text("Missing-key encrypted gate message") }
+            val event =
+                bob.room
+                    .getOutbox(room, transaction)
+                    .first { it?.eventId != null }!!
+                    .eventId!!
+            check(
+                bob.api.room
+                    .getEvent(room, event)
+                    .getOrThrow()
+                    .content is EncryptedMessageEventContent,
+            )
+            // Bob is the only holder of this historical session. Stop sync before Alice joins,
+            // so no key-request response can accidentally turn the missing-key case into a pass.
+            bob.stopSync()
+            bob.api.room
+                .inviteUser(room, client.userId)
+                .getOrThrow()
+            client.api.room
+                .joinRoom(room)
+                .getOrThrow()
+            store.state.first { it.rooms.any { channel -> channel.id == room.full } }
+            encryptedRoom = room
+        }
+
+    fun bodyCount(body: String): Int =
+        current?.vm?.elements?.value?.count {
+            (it.element.value as? RoomMessageTimelineElementViewModel<*>)?.body == body
+        } ?: 0
+
+    fun confirmedBodyCount(body: String): Int =
+        current?.vm?.elements?.value?.count {
+            it is TimelineElementHolderViewModel && it.isByMe && it.isSent.value &&
+                (it.element.value as? RoomMessageTimelineElementViewModel<*>)?.body == body
+        } ?: 0
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    suspend fun awaitSyncedBody(
+        roomId: RoomId,
+        body: String,
+    ) = withTimeout(20_000) {
+        client.room
+            .getById(roomId)
+            .filterNotNull()
+            .map { it.lastEventId }
+            .filterNotNull()
+            .flatMapLatest { client.room.getTimelineEvent(roomId, it) }
+            .first { (it?.content?.getOrNull() as? RoomMessageEventContent.TextBased.Text)?.body == body }
+    }
+
+    suspend fun assertEncryptedOnHomeserver(body: String) {
+        val session = checkNotNull(current)
+        val holder =
+            session.vm.elements.value.filterIsInstance<TimelineElementHolderViewModel>().single {
+                (it.element.value as? RoomMessageTimelineElementViewModel<*>)?.body == body
+            }
+        check(
+            client.api.room
+                .getEvent(
+                    session.roomId,
+                    holder.eventId,
+                ).getOrThrow()
+                .content is EncryptedMessageEventContent,
+        )
+    }
 
     suspend fun send(
         roomId: RoomId,
@@ -229,27 +379,29 @@ class MessengerTimelineGate private constructor(
                 }
             }
         } finally {
-            runBlocking { releaseResources(multi, synapse, storage) }
+            runBlocking { releaseResources(multi, synapse, storage, sendGate) }
         }
     }
 
     companion object {
-        suspend fun start(): MessengerTimelineGate {
+        suspend fun start(gatedSends: Boolean = false): MessengerTimelineGate {
             val synapse = SynapseContainer()
             val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
             var storage: File? = null
             var multi: MatrixMultiMessenger? = null
+            var sendGate: SendFaultProxy? = null
             try {
                 synapse.start()
+                if (gatedSends) sendGate = SendFaultProxy(synapse.url)
                 val clientStorage = Files.createTempDirectory("comcord-gate21-").toFile()
                 storage = clientStorage
                 val messenger = createMessenger(clientStorage)
                 multi = messenger
-                return initialize(synapse, clientStorage, messenger, scope)
+                return initialize(synapse, clientStorage, messenger, scope, sendGate)
             } catch (failure: Throwable) {
                 scope.cancel()
                 try {
-                    withContext(NonCancellable) { releaseResources(multi, synapse, storage) }
+                    withContext(NonCancellable) { releaseResources(multi, synapse, storage, sendGate) }
                 } catch (cleanupFailure: Throwable) {
                     failure.addSuppressed(cleanupFailure)
                 }
@@ -261,12 +413,17 @@ class MessengerTimelineGate private constructor(
             multi: MatrixMultiMessenger?,
             synapse: SynapseContainer,
             storage: File?,
+            sendGate: SendFaultProxy?,
         ) {
             try {
                 multi?.closeSuspending()
             } finally {
                 try {
-                    synapse.close()
+                    try {
+                        sendGate?.close()
+                    } finally {
+                        synapse.close()
+                    }
                 } finally {
                     storage?.deleteRecursively()
                 }
@@ -278,6 +435,7 @@ class MessengerTimelineGate private constructor(
             storage: File,
             multi: MatrixMultiMessenger,
             scope: CoroutineScope,
+            sendGate: SendFaultProxy?,
         ): MessengerTimelineGate =
             withTimeout(90_000) {
                 val messenger = multi.singleModeMatrixMessenger().first()
@@ -286,7 +444,7 @@ class MessengerTimelineGate private constructor(
                 val auth =
                     MatrixClientAuthProviderData
                         .classicLoginWithPassword(
-                            baseUrl = Url(synapse.url),
+                            baseUrl = Url(sendGate?.url ?: synapse.url),
                             identifier = IdentifierType.User("alice"),
                             password = "alicepass",
                         ).getOrThrow()
@@ -320,7 +478,7 @@ class MessengerTimelineGate private constructor(
                         it.rooms.any { room -> room.id == roomB.full }
                 }
                 store.selectRoom(roomA.full)
-                MessengerTimelineGate(synapse, storage, multi, messenger, client, roomA, roomB, scope, store)
+                MessengerTimelineGate(synapse, storage, multi, messenger, client, roomA, roomB, scope, store, sendGate)
             }
 
         private suspend fun createMessenger(storage: File) =
