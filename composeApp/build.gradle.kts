@@ -111,6 +111,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmTest.dependencies {
+            implementation(compose.desktop.uiTestJUnit4)
             implementation(libs.kotlin.test.junit)
         }
         androidMain.dependencies {

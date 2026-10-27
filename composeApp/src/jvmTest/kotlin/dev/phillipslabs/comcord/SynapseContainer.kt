@@ -91,6 +91,9 @@ class SynapseContainer : AutoCloseable {
             registration_shared_secret: smoke-test-secret
             macaroon_secret_key: smoke-test-macaroon
             suppress_key_server_warning: true
+            rc_message:
+              per_second: 1000
+              burst_count: 1000
             """.trimIndent(),
         )
     }
