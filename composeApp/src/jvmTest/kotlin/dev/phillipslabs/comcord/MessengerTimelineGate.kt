@@ -49,12 +49,14 @@ import io.ktor.http.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okio.Path.Companion.toPath
 import org.jetbrains.skia.Image
@@ -217,73 +219,109 @@ class MessengerTimelineGate private constructor(
         ).getOrThrow()
 
     override fun close() {
-        accountScope.cancel()
-        sessions.forEach {
-            it.lifecycle.destroy()
-            it.job.cancel()
+        try {
+            accountScope.cancel()
+            sessions.forEach {
+                try {
+                    it.lifecycle.destroy()
+                } finally {
+                    it.job.cancel()
+                }
+            }
+        } finally {
+            runBlocking { releaseResources(multi, synapse, storage) }
         }
-        runBlocking { multi.closeSuspending() }
-        synapse.close()
-        storage.deleteRecursively()
     }
 
     companion object {
         suspend fun start(): MessengerTimelineGate {
-            val synapse = SynapseContainer().start()
-            val storage = Files.createTempDirectory("comcord-gate21-").toFile()
-            val multi = createMessenger(storage)
+            val synapse = SynapseContainer()
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            var storage: File? = null
+            var multi: MatrixMultiMessenger? = null
             try {
-                return withTimeout(90_000) {
-                    val messenger = multi.singleModeMatrixMessenger().first()
-                    val clients = messenger.di.get<MatrixClients>()
-                    clients.isInitialized.first { it }
-                    val auth =
-                        MatrixClientAuthProviderData
-                            .classicLoginWithPassword(
-                                baseUrl = Url(synapse.url),
-                                identifier = IdentifierType.User("alice"),
-                                password = "alicepass",
-                            ).getOrThrow()
-                    check(clients.create(auth) == MatrixClients.CreateResult.Success)
-                    val client = clients.first { it.isNotEmpty() }.values.single()
-                    val roomA =
-                        client.api.room
-                            .createRoom(name = "Gate A")
-                            .getOrThrow()
-                    val roomB =
-                        client.api.room
-                            .createRoom(name = "Gate B")
-                            .getOrThrow()
-                    repeat(40) { index ->
-                        client.api.room
-                            .sendMessageEvent(
-                                roomA,
-                                RoomMessageEventContent.TextBased.Text("Gate A message $index"),
-                            ).getOrThrow()
-                    }
-                    client.api.room
-                        .sendMessageEvent(
-                            roomB,
-                            RoomMessageEventContent.TextBased.Text("Gate B message"),
-                        ).getOrThrow()
-                    client.startSync()
-                    val source = messenger.accountSources().first { it != null }!!
-                    val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-                    val store = AccountStore(source, scope)
-                    store.state.first {
-                        it.rooms.any { room -> room.id == roomA.full } &&
-                            it.rooms.any { room -> room.id == roomB.full }
-                    }
-                    store.selectRoom(roomA.full)
-                    MessengerTimelineGate(synapse, storage, multi, messenger, client, roomA, roomB, scope, store)
-                }
+                synapse.start()
+                val clientStorage = Files.createTempDirectory("comcord-gate21-").toFile()
+                storage = clientStorage
+                val messenger = createMessenger(clientStorage)
+                multi = messenger
+                return initialize(synapse, clientStorage, messenger, scope)
             } catch (failure: Throwable) {
-                multi.closeSuspending()
-                synapse.close()
-                storage.deleteRecursively()
+                scope.cancel()
+                try {
+                    withContext(NonCancellable) { releaseResources(multi, synapse, storage) }
+                } catch (cleanupFailure: Throwable) {
+                    failure.addSuppressed(cleanupFailure)
+                }
                 throw failure
             }
         }
+
+        private suspend fun releaseResources(
+            multi: MatrixMultiMessenger?,
+            synapse: SynapseContainer,
+            storage: File?,
+        ) {
+            try {
+                multi?.closeSuspending()
+            } finally {
+                try {
+                    synapse.close()
+                } finally {
+                    storage?.deleteRecursively()
+                }
+            }
+        }
+
+        private suspend fun initialize(
+            synapse: SynapseContainer,
+            storage: File,
+            multi: MatrixMultiMessenger,
+            scope: CoroutineScope,
+        ): MessengerTimelineGate =
+            withTimeout(90_000) {
+                val messenger = multi.singleModeMatrixMessenger().first()
+                val clients = messenger.di.get<MatrixClients>()
+                clients.isInitialized.first { it }
+                val auth =
+                    MatrixClientAuthProviderData
+                        .classicLoginWithPassword(
+                            baseUrl = Url(synapse.url),
+                            identifier = IdentifierType.User("alice"),
+                            password = "alicepass",
+                        ).getOrThrow()
+                check(clients.create(auth) == MatrixClients.CreateResult.Success)
+                val client = clients.first { it.isNotEmpty() }.values.single()
+                val roomA =
+                    client.api.room
+                        .createRoom(name = "Gate A")
+                        .getOrThrow()
+                val roomB =
+                    client.api.room
+                        .createRoom(name = "Gate B")
+                        .getOrThrow()
+                repeat(40) { index ->
+                    client.api.room
+                        .sendMessageEvent(
+                            roomA,
+                            RoomMessageEventContent.TextBased.Text("Gate A message $index"),
+                        ).getOrThrow()
+                }
+                client.api.room
+                    .sendMessageEvent(
+                        roomB,
+                        RoomMessageEventContent.TextBased.Text("Gate B message"),
+                    ).getOrThrow()
+                client.startSync()
+                val source = messenger.accountSources().first { it != null }!!
+                val store = AccountStore(source, scope)
+                store.state.first {
+                    it.rooms.any { room -> room.id == roomA.full } &&
+                        it.rooms.any { room -> room.id == roomB.full }
+                }
+                store.selectRoom(roomA.full)
+                MessengerTimelineGate(synapse, storage, multi, messenger, client, roomA, roomB, scope, store)
+            }
 
         private suspend fun createMessenger(storage: File) =
             MatrixMultiMessenger.create {
