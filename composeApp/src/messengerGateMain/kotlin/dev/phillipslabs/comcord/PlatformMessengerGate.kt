@@ -95,7 +95,7 @@ class PlatformGateHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var gate: PlatformMessengerGate? = null
     private var foreground = true
-    private var destroyed = false
+    private var destroyed by mutableStateOf(false)
     var hostEvents by mutableStateOf("created")
         private set
 
@@ -147,9 +147,13 @@ class PlatformGateHost {
                 Column {
                     Text("Messenger platform gate #23")
                     Text("Host: $hostEvents")
-                    Button(onClick = onClose) { Text("Close host") }
+                    if (!destroyed) Button(onClick = onClose) { Text("Close host") }
                     failure?.let { Text("FAIL: $it") }
-                    ready?.Content() ?: Text("Initializing disposable workflow…")
+                    if (destroyed) {
+                        Text("Host destroyed")
+                    } else {
+                        ready?.Content() ?: Text("Initializing disposable workflow…")
+                    }
                 }
             }
         }
@@ -296,8 +300,17 @@ class PlatformMessengerGate private constructor(
         val a = checkNotNull(current)
         check(bodyCount("Platform A0") == 0)
         pass("initial Messenger rendering")
-        a.vm.loadBefore()
-        await("paged body") { bodyCount("Platform A0") == 1 }
+        // SDK buffer and page sizes differ. Bound paging attempts instead of assuming one page.
+        repeat(8) {
+            if (bodyCount("Platform A0") == 0 && a.vm.canLoadBefore.value != false) {
+                val count = a.vm.elements.value.size
+                a.vm.loadBefore()
+                await("older paging response") {
+                    a.vm.elements.value.size > count || a.vm.canLoadBefore.value == false
+                }
+            }
+        }
+        await("oldest seeded body after at most eight paging attempts") { bodyCount("Platform A0") == 1 }
         pass("older paging")
         send(roomA, "Platform incoming")
         await("incoming body") { bodyCount("Platform incoming") == 1 }
