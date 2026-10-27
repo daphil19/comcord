@@ -13,10 +13,12 @@ import java.util.concurrent.TimeUnit
 /** Fault injection at the HTTP boundary; SDK outbox and all Matrix behavior remain real. */
 class SendFaultProxy(
     private val upstream: String,
+    port: Int = 0,
+    private val browserCors: Boolean = false,
 ) : AutoCloseable {
     private val executor = Executors.newCachedThreadPool()
     private val client = HttpClient.newBuilder().build()
-    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", port), 0)
 
     @Volatile private var held: CountDownLatch? = null
 
@@ -24,13 +26,34 @@ class SendFaultProxy(
         private set
 
     @Volatile private var failSend = false
+
+    @Volatile private var timedHoldNextSend = false
     val url: String get() = "http://127.0.0.1:${server.address.port}"
 
     init {
         server.executor = executor
         server.createContext("/") { exchange ->
             try {
+                if (browserCors) {
+                    exchange.responseHeaders.set("Access-Control-Allow-Origin", "*")
+                    exchange.responseHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+                    exchange.responseHeaders.set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+                    if (exchange.requestMethod == "OPTIONS") {
+                        exchange.sendResponseHeaders(204, -1)
+                        return@createContext
+                    }
+                }
+                if (browserCors && exchange.requestURI.rawPath == "/_gate/hold-next-send") {
+                    check(exchange.requestMethod == "POST")
+                    timedHoldNextSend = true
+                    exchange.sendResponseHeaders(204, -1)
+                    return@createContext
+                }
                 if (exchange.requestURI.rawPath.contains("/send/")) {
+                    if (timedHoldNextSend) {
+                        timedHoldNextSend = false
+                        Thread.sleep(2_000)
+                    }
                     sendArrived = true
                     held?.await(30, TimeUnit.SECONDS)
                     if (failSend) {
@@ -57,7 +80,9 @@ class SendFaultProxy(
                 }
                 val response = client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray())
                 response.headers().map().forEach { (key, values) ->
-                    if (key.lowercase() !in setOf("transfer-encoding", "content-length", "connection")) {
+                    if (key.lowercase() !in setOf("transfer-encoding", "content-length", "connection") &&
+                        !(browserCors && key.startsWith("access-control-", ignoreCase = true))
+                    ) {
                         values.forEach { exchange.responseHeaders.add(key, it) }
                     }
                 }

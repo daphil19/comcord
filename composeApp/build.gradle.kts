@@ -176,3 +176,16 @@ tasks.register<Test>("matrixSmokeTest") {
 tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasmJs") {
     incrementalWasm = false
 }
+
+// Experimental #23 launchers are opt-in and never enter ordinary production builds.
+if (providers.gradleProperty("messengerGate").isPresent) {
+    kotlin.sourceSets {
+        commonMain.get().kotlin.srcDir("src/messengerGateMain/kotlin")
+        configureEach {
+            when (name) {
+                "webMain" -> kotlin.setSrcDirs(listOf("src/messengerGateWebMain/kotlin"))
+                "iosMain" -> kotlin.setSrcDirs(listOf("src/messengerGateIosMain/kotlin"))
+            }
+        }
+    }
+}
