@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -69,6 +70,7 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMeth
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountState
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
+import de.connect2x.trixnity.messenger.viewmodel.initialsync.InitialSyncRouter
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 private val AppBg = Color(0xFF1A1D24)
@@ -85,20 +87,63 @@ fun App(
     rootViewModel: RootViewModel,
     matrixMessenger: MatrixMessenger,
     modifier: Modifier = Modifier,
+    onRetryInitialization: () -> Unit = {},
 ) {
+    val uiaState = rootViewModel.uiaStack.subscribeAsState()
     val stackState = rootViewModel.stack.subscribeAsState()
     val route = stackState.value.active.instance
 
-    MaterialTheme {
+    MaterialTheme(colorScheme = darkColorScheme()) {
         Surface(
             modifier = modifier.fillMaxSize(),
             color = AppBg,
         ) {
-            when (route) {
-                is RootRouter.Wrapper.AddMatrixAccount -> AddMatrixAccountScreen(route.viewModel)
-                is RootRouter.Wrapper.PasswordLogin -> PasswordLoginScreen(route.viewModel)
-                is RootRouter.Wrapper.Main -> ActiveAccountScreen(matrixMessenger)
-                else -> CenterStatus(routeStatus(route))
+            val uia = uiaState.value.active.instance
+            if (uia !is de.connect2x.trixnity.messenger.viewmodel.uia.UiaRouter.Wrapper.None) {
+                AuthenticationChallenge(uia)
+            } else {
+                when (route) {
+                    is RootRouter.Wrapper.AddMatrixAccount -> {
+                        AddMatrixAccountScreen(route.viewModel)
+                    }
+
+                    is RootRouter.Wrapper.PasswordLogin -> {
+                        PasswordLoginScreen(route.viewModel)
+                    }
+
+                    is RootRouter.Wrapper.Main -> {
+                        val initialSync by route.viewModel.initialSyncStack.subscribeAsState()
+                        if (initialSync.active.instance is InitialSyncRouter.Wrapper.Sync) {
+                            Column(
+                                Modifier.fillMaxSize().padding(24.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("Syncing your Account…", color = TextStrong)
+                                Text(
+                                    "If this takes too long, check your connection and retry. " +
+                                        "Your saved Account is kept.",
+                                    color = TextMuted,
+                                )
+                                Button(onClick = onRetryInitialization) { Text("Retry connection") }
+                            }
+                        } else {
+                            ActiveAccountScreen(matrixMessenger)
+                        }
+                    }
+
+                    is RootRouter.Wrapper.MatrixClientInitializationFailure -> {
+                        InitializationFailureScreen(route.viewModel, onRetryInitialization)
+                    }
+
+                    is RootRouter.Wrapper.MatrixClientInitialization -> {
+                        val status by route.viewModel.currentState.collectAsState()
+                        CenterStatus(status.ifBlank { "Restoring Account…" })
+                    }
+
+                    else -> {
+                        CenterStatus(routeStatus(route))
+                    }
+                }
             }
         }
     }
@@ -156,7 +201,13 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
                     }
 
                     is AddMatrixAccountViewModel.ServerDiscoveryState.Success -> {
-                        "Homeserver ready"
+                        if (passwordMethod !=
+                            null
+                        ) {
+                            "Homeserver ready"
+                        } else {
+                            "This homeserver does not offer password sign-in. Choose another Homeserver URL."
+                        }
                     }
 
                     AddMatrixAccountViewModel.ServerDiscoveryState.None -> {
@@ -165,6 +216,11 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
                 },
             color = TextMuted,
         )
+
+        if (discoveryState is AddMatrixAccountViewModel.ServerDiscoveryState.Failure) {
+            Text("Check the Homeserver URL and your connection, then retry.", color = TextMuted)
+            Button(onClick = { viewModel.serverUrl.update(serverField.text) }) { Text("Retry discovery") }
+        }
 
         Button(
             enabled = passwordMethod != null,
@@ -223,9 +279,20 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = viewModel::back) { Text("Back") }
-            Button(enabled = canLogin, onClick = viewModel::tryLogin) { Text("Log In") }
+            Button(
+                enabled = canLogin && loginState != AddMatrixAccountState.Connecting,
+                onClick = viewModel::tryLogin,
+            ) {
+                Text("Log In")
+            }
         }
 
+        if (loginState is AddMatrixAccountState.Failure) {
+            Text(
+                "Check your username and password, then Log In again. Use Back to change Homeserver.",
+                color = TextMuted,
+            )
+        }
         Text(
             text =
                 when (loginState) {

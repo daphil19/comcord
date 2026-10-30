@@ -79,7 +79,11 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Disposable experiment. Only AccountStore owns selection; Messenger owns every timeline element. */
+/**
+ * Disposable experiment. Only AccountStore owns selection; Messenger owns every timeline element.
+ * Fixture resources are created and released together; these are not product dependencies.
+ */
+@Suppress("LongParameterList")
 class MessengerTimelineGate private constructor(
     private val synapse: SynapseContainer,
     private val storage: File,
@@ -111,6 +115,8 @@ class MessengerTimelineGate private constructor(
 
     var visible by mutableStateOf(true)
 
+    // The isolated fixture deliberately runs real SDK work on the background dispatcher.
+    @Suppress("InjectDispatcher")
     private fun open(roomId: RoomId): Session {
         val lifecycle = LifecycleRegistry()
         val job = SupervisorJob()
@@ -384,6 +390,7 @@ class MessengerTimelineGate private constructor(
     }
 
     companion object {
+        @Suppress("InjectDispatcher")
         suspend fun start(gatedSends: Boolean = false): MessengerTimelineGate {
             val synapse = SynapseContainer()
             val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())

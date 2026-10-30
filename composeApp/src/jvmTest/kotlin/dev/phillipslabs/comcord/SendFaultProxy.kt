@@ -28,6 +28,8 @@ class SendFaultProxy(
     @Volatile private var failSend = false
 
     @Volatile private var timedHoldNextSend = false
+
+    @Volatile var discoveryUnavailable = false
     val url: String get() = "http://127.0.0.1:${server.address.port}"
 
     init {
@@ -42,6 +44,19 @@ class SendFaultProxy(
                         exchange.sendResponseHeaders(204, -1)
                         return@createContext
                     }
+                }
+                if (discoveryUnavailable && exchange.requestMethod == "GET" &&
+                    (
+                        exchange.requestURI.rawPath.endsWith(
+                            "/login",
+                        ) || exchange.requestURI.rawPath.endsWith("/versions")
+                    )
+                ) {
+                    val bytes = """{"errcode":"M_UNKNOWN","error":"Controlled discovery outage"}""".toByteArray()
+                    exchange.responseHeaders.add("Content-Type", "application/json")
+                    exchange.sendResponseHeaders(503, bytes.size.toLong())
+                    exchange.responseBody.use { it.write(bytes) }
+                    return@createContext
                 }
                 if (browserCors && exchange.requestURI.rawPath == "/_gate/hold-next-send") {
                     check(exchange.requestMethod == "POST")
