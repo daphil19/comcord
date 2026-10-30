@@ -68,15 +68,21 @@ retained application state. Async page unload cannot guarantee cleanup completes
   clients and workers retain their production default background dispatchers.
   The scenario preserves real Messenger, Synapse, client storage, sync and crypto;
   it does not prove native rendering.
-- Interactive JS browser checks at the initial implementation revision confirmed
+- Interactive JS browser checks confirmed
   real Homeserver discovery, wrong-password recovery, correct login into the
-  synced shell, and shell restoration after browser reload. These checks used the
+  synced shell, and shell restoration after browser reload. A final web rebuild
+  at code revision `eccdb14` again restored the signed-in Account and Synced shell
+  after reload; the test session was then signed out. These checks used the
   documented local development homeserver; the disposable JVM fixture remains
   independent. The in-app browser did not expose actual visibility changes, so
   these observations do not prove browser lifecycle stop/resume. Native desktop
   interaction was unavailable while the host computer was locked.
-- Formatting and focused source/static checks passed. Final `buildDev` and any
-  additional target runtime evidence are reported with the integration PR.
+- Final integration verification at code revision `eccdb14` passed:
+  `./gradlew buildDev :composeApp:compileDevelopmentExecutableKotlinJs`
+  (233 tasks, 1 minute 18 seconds). This includes development artifacts, both
+  modules' checks, and configured JVM, Android, JS, Wasm and iOS simulator tests.
+  Formatting and `git diff --check` passed. Native interactive host lifecycle
+  checks remain unverified; these test/build results do not imply them.
   No production timeline, composer or encryption feature ticket
   is closed by this authentication slice.
 
