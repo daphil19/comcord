@@ -3,42 +3,41 @@ package dev.phillipslabs.comcord
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.lifecycle.lifecycleScope
-import de.connect2x.trixnity.messenger.createRoot
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
 import de.connect2x.trixnity.messenger.multi.create
-import de.connect2x.trixnity.messenger.multi.singleModeMatrixMessenger
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private lateinit var applicationHost: ComcordApplicationHost
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        lifecycleScope.launch {
-            val matrixMessenger = initializeMessenger()
-            val rootViewModel = matrixMessenger.createRoot()
-            setContent {
-                App(rootViewModel, matrixMessenger)
-            }
+        applicationHost = ViewModelProvider(this)[ApplicationHostViewModel::class.java].host
+        setContent {
+            applicationHost.Content(
+                factory = { MatrixMultiMessenger.create(applicationContext) { comcordMatrixConfig(applicationHost) } },
+            )
         }
     }
 
-    private suspend fun initializeMessenger(dispatcher: CoroutineDispatcher = Dispatchers.Default) =
-        withContext(dispatcher) {
-            MatrixMultiMessenger
-                .create(applicationContext) {
-                    comcordMatrixConfig()
-                }.singleModeMatrixMessenger()
-                .first()
-        }
+    override fun onStart() {
+        super.onStart()
+        applicationHost.resume()
+    }
+
+    override fun onStop() {
+        applicationHost.stop()
+        super.onStop()
+    }
 }
 
-// @Preview
-// @Composable
-// private fun AppAndroidPreview() {
-//    App()
-// }
+// Activity recreation retains the SDK lifetime and storage owner. Clearing the
+// ViewModel closes it; removing an Account UI alone does not close all clients.
+class ApplicationHostViewModel : ViewModel() {
+    val host = ComcordApplicationHost()
+
+    override fun onCleared() {
+        host.destroy()
+    }
+}
