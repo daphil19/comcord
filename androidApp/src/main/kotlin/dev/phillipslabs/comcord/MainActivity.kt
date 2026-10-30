@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         applicationHost = ViewModelProvider(this)[ApplicationHostViewModel::class.java].host
         setContent {
             applicationHost.Content(
-                factory = { MatrixMultiMessenger.create(applicationContext) { comcordMatrixConfig() } },
+                factory = { MatrixMultiMessenger.create(applicationContext) { comcordMatrixConfig(applicationHost) } },
             )
         }
     }

@@ -30,6 +30,8 @@ class SendFaultProxy(
     @Volatile private var timedHoldNextSend = false
 
     @Volatile var discoveryUnavailable = false
+    val loginGate = RequestGate()
+    val initialSyncGate = RequestGate()
     val url: String get() = "http://127.0.0.1:${server.address.port}"
 
     init {
@@ -46,11 +48,7 @@ class SendFaultProxy(
                     }
                 }
                 if (discoveryUnavailable && exchange.requestMethod == "GET" &&
-                    (
-                        exchange.requestURI.rawPath.endsWith(
-                            "/login",
-                        ) || exchange.requestURI.rawPath.endsWith("/versions")
-                    )
+                    exchange.requestURI.rawPath.substringAfterLast('/') in setOf("login", "versions")
                 ) {
                     val bytes = """{"errcode":"M_UNKNOWN","error":"Controlled discovery outage"}""".toByteArray()
                     exchange.responseHeaders.add("Content-Type", "application/json")
@@ -63,6 +61,12 @@ class SendFaultProxy(
                     timedHoldNextSend = true
                     exchange.sendResponseHeaders(204, -1)
                     return@createContext
+                }
+                if (exchange.requestURI.rawPath.endsWith("/login") && exchange.requestMethod == "POST") {
+                    loginGate.awaitIfHeld()
+                }
+                if (exchange.requestURI.rawPath.endsWith("/sync") && exchange.requestMethod == "GET") {
+                    initialSyncGate.awaitIfHeld()
                 }
                 if (exchange.requestURI.rawPath.contains("/send/")) {
                     if (timedHoldNextSend) {
@@ -125,8 +129,34 @@ class SendFaultProxy(
     }
 
     override fun close() {
+        loginGate.release()
+        initialSyncGate.release()
         releaseSend()
         server.stop(0)
         executor.shutdownNow()
+    }
+}
+
+/** Controls a real HTTP request without synthesizing SDK state. */
+class RequestGate {
+    @Volatile private var latch: CountDownLatch? = null
+
+    @Volatile var arrived = false
+        private set
+
+    fun hold() {
+        arrived = false
+        latch = CountDownLatch(1)
+    }
+
+    fun awaitIfHeld() {
+        val current = latch ?: return
+        arrived = true
+        current.await(30, TimeUnit.SECONDS)
+    }
+
+    fun release() {
+        latch?.countDown()
+        latch = null
     }
 }

@@ -97,6 +97,7 @@ fun App(
         Surface(
             modifier = modifier.fillMaxSize(),
             color = AppBg,
+            contentColor = TextStrong,
         ) {
             val uia = uiaState.value.active.instance
             if (uia !is de.connect2x.trixnity.messenger.viewmodel.uia.UiaRouter.Wrapper.None) {
@@ -197,7 +198,7 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
                     }
 
                     is AddMatrixAccountViewModel.ServerDiscoveryState.Failure -> {
-                        (discoveryState as AddMatrixAccountViewModel.ServerDiscoveryState.Failure).message
+                        "Could not reach this Homeserver."
                     }
 
                     is AddMatrixAccountViewModel.ServerDiscoveryState.Success -> {
@@ -296,10 +297,21 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
         Text(
             text =
                 when (loginState) {
-                    AddMatrixAccountState.None -> ""
-                    AddMatrixAccountState.Connecting -> "Connecting..."
-                    AddMatrixAccountState.Success -> "Connected"
-                    is AddMatrixAccountState.Failure -> (loginState as AddMatrixAccountState.Failure).message
+                    AddMatrixAccountState.None -> {
+                        ""
+                    }
+
+                    AddMatrixAccountState.Connecting -> {
+                        "Connecting..."
+                    }
+
+                    AddMatrixAccountState.Success -> {
+                        "Connected"
+                    }
+
+                    is AddMatrixAccountState.Failure -> {
+                        "Could not sign in. Check your username, password, Homeserver and connection."
+                    }
                 },
             color = TextMuted,
         )
