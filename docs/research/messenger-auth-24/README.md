@@ -47,13 +47,16 @@ retained application state. Async page unload cannot guarantee cleanup completes
 
 - The public host regression for closing during suspended startup was observed
   failing before cancellation ownership was added, then passing afterward.
+  A virtual-time bootstrap timeout regression also verifies that timeout exposes
+  recovery while host cancellation still propagates.
 - JVM production and integration-test source compilation completed.
 - `MessengerAuthenticationSmokeTest` exercises actual discovery/password VMs,
   controlled HTTP discovery failure and unchanged-URL retry, wrong-password
   correction, foreground sync stop/resume, persistent same-Account/device restart
   and restored usable Channel projections with test-managed Synapse.
 - The final headless authentication scenario, startup cancellation regression and
-  Detekt passed in 15 seconds after adding the supported foreground policy.
+  both Android/JVM type-resolved Detekt tasks passed in 22 seconds after adding
+  the supported foreground policy and explicit cancellation handling.
   Held real login and initial-sync responses across
   host stop, normal stop/resume, invalid filesystem storage-root failure with
   retry into the unchanged saved Account, backgrounded startup before resume,

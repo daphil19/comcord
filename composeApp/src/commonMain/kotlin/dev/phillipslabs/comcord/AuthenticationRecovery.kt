@@ -97,9 +97,7 @@ fun AuthenticationChallenge(
     ) {
         Text("Confirm Account action", style = MaterialTheme.typography.headlineSmall)
         when (route) {
-            UiaRouter.Wrapper.None -> {
-                Unit
-            }
+            UiaRouter.Wrapper.None -> {}
 
             is UiaRouter.Wrapper.UiaActionConfirmation -> {
                 val vm = route.viewModel

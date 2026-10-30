@@ -12,10 +12,25 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ComcordApplicationHostTest {
+    @Test
+    fun bootstrapTimeoutOffersRecoveryInsteadOfEscapingAsCancellation() =
+        runTest {
+            Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+            val host = ComcordApplicationHost()
+            try {
+                host.initialize { awaitCancellation() }
+                assertIs<ComcordApplicationState.Failure>(host.state.value)
+            } finally {
+                host.closeSuspending()
+                Dispatchers.resetMain()
+            }
+        }
+
     @Test
     fun closingDuringStartupCancelsInitialization() =
         runTest {
