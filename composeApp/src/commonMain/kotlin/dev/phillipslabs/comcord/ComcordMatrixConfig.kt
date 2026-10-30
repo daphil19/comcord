@@ -14,7 +14,6 @@ import org.koin.dsl.module
 val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
     appName = "Comcord"
     appId = "dev.phillipslabs.comcord"
-    // TODO can we set a server url here?
     // TODO client engine eventually
 //    httpClientEngine = CIO.create()
 
