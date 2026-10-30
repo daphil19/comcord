@@ -75,16 +75,42 @@ retained application state. Async page unload cannot guarantee cleanup completes
   after reload; the test session was then signed out. These checks used the
   documented local development homeserver; the disposable JVM fixture remains
   independent. The in-app browser did not expose actual visibility changes, so
-  these observations do not prove browser lifecycle stop/resume. Native desktop
-  interaction was unavailable while the host computer was locked.
+  these observations do not prove browser lifecycle stop/resume. Initial native
+  interaction was unavailable while the host computer was locked; the subsequent
+  unlocked desktop checks are recorded below.
 - Final integration verification at code revision `eccdb14` passed:
   `./gradlew buildDev :composeApp:compileDevelopmentExecutableKotlinJs`
   (233 tasks, 1 minute 18 seconds). This includes development artifacts, both
   modules' checks, and configured JVM, Android, JS, Wasm and iOS simulator tests.
-  Formatting and `git diff --check` passed. Native interactive host lifecycle
-  checks remain unverified; these test/build results do not imply them.
+  Formatting and `git diff --check` passed. Native minimize/restore sync
+  transitions and Android/iOS interactive host checks remain unverified; these
+  test/build results do not imply them.
   No production timeline, composer or encryption feature ticket
   is closed by this authentication slice.
+
+### Native macOS follow-up, October 30, 2026
+
+After the host was unlocked, `./gradlew :composeApp:createDistributable` passed
+in 20 seconds and the resulting `Comcord.app` was tested with its Java 17 runtime.
+The hot-reload task could not launch because JetBrains Runtime 21 was unavailable;
+no toolchain or dependency changes were made.
+
+Observed through the actual native UI at code revision `eccdb14`:
+
+- Local Homeserver discovery succeeded against the existing development host.
+- A wrong password produced readable Homeserver-oriented recovery guidance;
+  correcting it opened the synced shell with five Channels.
+- Native window zoom rendered the wide shell and Channel List.
+- Closing the native window terminated the app process. Reopening the bundle
+  restored the signed-in Account and synced shell without another login.
+- The verification session was signed out and the native app was closed afterward.
+
+Minimize controls/shortcuts did not yield a conclusive observable stop/resume
+transition through the UI tools, so this follow-up does not promote that criterion
+to a native runtime pass. The real-Messenger integration stop/resume and adversarial
+initialization tests remain the automated evidence for lifecycle policy. Android
+and iOS interactive host checks remain unverified. The existing development
+homeserver and unrelated working-tree files were left untouched.
 
 Focused commands (Java 17, Docker):
 
