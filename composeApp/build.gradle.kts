@@ -111,15 +111,17 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmTest.dependencies {
+            implementation(compose.desktop.uiTestJUnit4)
             implementation(libs.kotlin.test.junit)
         }
         androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.activity.compose)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation(libs.ktor.client.cio)
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.kotlinx.coroutines.swing)
         }
         webMain.dependencies {
@@ -174,4 +176,17 @@ tasks.register<Test>("matrixSmokeTest") {
 // Trixnity/test dependency graph, preventing Karma from discovering any tests.
 tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasmJs") {
     incrementalWasm = false
+}
+
+// Experimental #23 launchers are opt-in and never enter ordinary production builds.
+if (providers.gradleProperty("messengerGate").isPresent) {
+    kotlin.sourceSets {
+        commonMain.get().kotlin.srcDir("src/messengerGateMain/kotlin")
+        configureEach {
+            when (name) {
+                "webMain" -> kotlin.setSrcDirs(listOf("src/messengerGateWebMain/kotlin"))
+                "iosMain" -> kotlin.setSrcDirs(listOf("src/messengerGateIosMain/kotlin"))
+            }
+        }
+    }
 }

@@ -70,6 +70,25 @@ class SynapseContainer : AutoCloseable {
         }
     }
 
+    fun register(
+        user: String,
+        password: String,
+    ) {
+        docker(
+            "exec",
+            checkNotNull(containerId),
+            "register_new_matrix_user",
+            "-u",
+            user,
+            "-p",
+            password,
+            "--no-admin",
+            "-c",
+            "/data/homeserver.yaml",
+            "http://localhost:8008",
+        )
+    }
+
     private fun writeConfiguration() {
         data.resolve("homeserver.yaml").writeText(
             """
@@ -91,6 +110,9 @@ class SynapseContainer : AutoCloseable {
             registration_shared_secret: smoke-test-secret
             macaroon_secret_key: smoke-test-macaroon
             suppress_key_server_warning: true
+            rc_message:
+              per_second: 1000
+              burst_count: 1000
             """.trimIndent(),
         )
     }

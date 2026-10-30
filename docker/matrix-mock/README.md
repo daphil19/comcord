@@ -16,6 +16,15 @@ docker compose -f docker/matrix-mock/docker-compose.yml up -d
 
 Homeserver URL: `http://localhost:8008`
 
+For the ordinary Android debug app, use `http://10.0.2.2:8008` in the Homeserver
+field. The emulator maps `10.0.2.2` to the development machine. Alternatively,
+run `adb reverse tcp:8008 tcp:8008` and use `http://localhost:8008`.
+
+Debug builds permit HTTP only to `10.0.2.2`, `localhost`, and `127.0.0.1` through
+`androidApp/src/debug/res/xml/debug_network_security_config.xml`. Release builds
+do not include this configuration. Rebuild and reinstall the debug app after
+changing network security configuration; no emulator proxy setting is required.
+
 ## Seeded users
 
 - `alice` / `alicepass` (admin)

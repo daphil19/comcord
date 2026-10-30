@@ -62,16 +62,25 @@ Do not copy source, assets, or exact visual designs from other chat clients.
 `:composeApp:assembleDebug` remains a forwarding task for compatibility. Android
 release tasks and APK/AAB outputs belong to `androidApp`.
 
-## Account store and Matrix source
+## Matrix workflows and account state
 
-`AccountStore` owns room state and selection for one Account. Its caller owns the
-coroutine scope and cancels it when that Account UI leaves. Shell composables
-collect `AccountState` and send store intents. `MatrixSource` uses Comcord models
-and string IDs; keep SDK types and room observation in `TrixnityMatrixSource`
-and `ComcordRoomDirectory`. Startup/account connection may still use SDK view
-models (ADR 0002).
+For timeline, composer, authentication, verification, recovery, or account
+lifecycle work, read [ADR 0005](docs/adr/0005-messenger-first-matrix-workflows.md).
+It supersedes ADR 0002: prefer Messenger workflows and allow feature composables
+to consume their view models directly. Preserve Comcord's visible vocabulary,
+community projections, navigation, and explicit product requirements. Use
+Messenger behavior where Comcord has no explicit requirement.
 
-Put store behavior tests in `commonTest`, driving `FakeMatrixSource`. Put adapter
-integration tests in JVM `*SmokeTest` classes; `matrixSmokeTest` runs these while
-`jvmTest` excludes them. Smoke tests own their homeserver and client storage;
-they must work without the development Docker Compose stack.
+Broader VM adoption requires the ADR's timeline integration gate. The current
+code still uses Comcord-owned stores and source interfaces; the ADR records the
+intended direction, not a completed migration. Account-level state owns selection
+and retained navigation; room-scoped Messenger VMs should own live timeline
+behavior. Bind one selection authority and explicit lifecycle; keep drafts and
+navigation independently of live timeline collectors.
+
+Keep common tests with fakes for Comcord-owned policy and projections. Verify
+Messenger workflow wiring and lifecycle through integration scenarios. Existing
+store tests use `FakeMatrixSource`. Put JVM adapter integration tests in
+`*SmokeTest` classes; `matrixSmokeTest` runs these while `jvmTest` excludes them.
+Smoke tests own their homeserver and client storage and work without the
+development Docker Compose stack.

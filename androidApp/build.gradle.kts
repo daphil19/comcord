@@ -87,3 +87,13 @@ dependencies {
     implementation(libs.trixnity.messenger)
     debugImplementation(libs.compose.ui.tooling)
 }
+
+if (providers.gradleProperty("messengerGate").isPresent) {
+    android {
+        defaultConfig.applicationId = "dev.phillipslabs.comcord.gate"
+        sourceSets.getByName("main") {
+            java.srcDir("src/messengerGate/kotlin")
+            manifest.srcFile("src/messengerGate/AndroidManifest.xml")
+        }
+    }
+}

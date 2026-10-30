@@ -17,6 +17,10 @@ val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
     // TODO client engine eventually
 //    httpClientEngine = CIO.create()
 
+    messengerConfiguration {
+        defaultHomeServer = "https://matrix.org"
+    }
+
     // TODO this is modeled after the trxinity-messenger example
     // TODO having to set these ourselves is kinda annoying...
     modulesFactories +=

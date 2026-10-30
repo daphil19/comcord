@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -34,9 +35,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -54,6 +55,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,11 +65,12 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import de.connect2x.trixnity.messenger.MatrixMessenger
 import de.connect2x.trixnity.messenger.viewmodel.RootRouter
 import de.connect2x.trixnity.messenger.viewmodel.RootViewModel
+import de.connect2x.trixnity.messenger.viewmodel.TextFieldViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMethod
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountState
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.PasswordLoginViewModel
-import kotlinx.coroutines.flow.StateFlow
+import de.connect2x.trixnity.messenger.viewmodel.initialsync.InitialSyncRouter
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 private val AppBg = Color(0xFF1A1D24)
@@ -82,20 +87,64 @@ fun App(
     rootViewModel: RootViewModel,
     matrixMessenger: MatrixMessenger,
     modifier: Modifier = Modifier,
+    onRetryInitialization: () -> Unit = {},
 ) {
+    val uiaState = rootViewModel.uiaStack.subscribeAsState()
     val stackState = rootViewModel.stack.subscribeAsState()
     val route = stackState.value.active.instance
 
-    MaterialTheme {
+    MaterialTheme(colorScheme = darkColorScheme()) {
         Surface(
             modifier = modifier.fillMaxSize(),
             color = AppBg,
+            contentColor = TextStrong,
         ) {
-            when (route) {
-                is RootRouter.Wrapper.AddMatrixAccount -> AddMatrixAccountScreen(route.viewModel)
-                is RootRouter.Wrapper.PasswordLogin -> PasswordLoginScreen(route.viewModel)
-                is RootRouter.Wrapper.Main -> ActiveAccountScreen(matrixMessenger)
-                else -> CenterStatus(routeStatus(route))
+            val uia = uiaState.value.active.instance
+            if (uia !is de.connect2x.trixnity.messenger.viewmodel.uia.UiaRouter.Wrapper.None) {
+                AuthenticationChallenge(uia)
+            } else {
+                when (route) {
+                    is RootRouter.Wrapper.AddMatrixAccount -> {
+                        AddMatrixAccountScreen(route.viewModel)
+                    }
+
+                    is RootRouter.Wrapper.PasswordLogin -> {
+                        PasswordLoginScreen(route.viewModel)
+                    }
+
+                    is RootRouter.Wrapper.Main -> {
+                        val initialSync by route.viewModel.initialSyncStack.subscribeAsState()
+                        if (initialSync.active.instance is InitialSyncRouter.Wrapper.Sync) {
+                            Column(
+                                Modifier.fillMaxSize().padding(24.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("Syncing your Account…", color = TextStrong)
+                                Text(
+                                    "If this takes too long, check your connection and retry. " +
+                                        "Your saved Account is kept.",
+                                    color = TextMuted,
+                                )
+                                Button(onClick = onRetryInitialization) { Text("Retry connection") }
+                            }
+                        } else {
+                            ActiveAccountScreen(matrixMessenger)
+                        }
+                    }
+
+                    is RootRouter.Wrapper.MatrixClientInitializationFailure -> {
+                        InitializationFailureScreen(route.viewModel, onRetryInitialization)
+                    }
+
+                    is RootRouter.Wrapper.MatrixClientInitialization -> {
+                        val status by route.viewModel.currentState.collectAsState()
+                        CenterStatus(status.ifBlank { "Restoring Account…" })
+                    }
+
+                    else -> {
+                        CenterStatus(routeStatus(route))
+                    }
+                }
             }
         }
     }
@@ -113,14 +162,8 @@ private fun CenterStatus(status: String) {
 
 @Composable
 private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
-    val serverField by viewModel.serverUrl.collectAsStateCompat()
-    val discoveryState by viewModel.serverDiscoveryState.collectAsStateCompat()
-
-    LaunchedEffect(serverField.text) {
-        if (serverField.text.isBlank()) {
-            viewModel.serverUrl.update("https://matrix.org")
-        }
-    }
+    val serverField by viewModel.serverUrl.collectAsState()
+    val discoveryState by viewModel.serverDiscoveryState.collectAsState()
 
     val passwordMethod =
         (discoveryState as? AddMatrixAccountViewModel.ServerDiscoveryState.Success)
@@ -155,11 +198,17 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
                     }
 
                     is AddMatrixAccountViewModel.ServerDiscoveryState.Failure -> {
-                        (discoveryState as AddMatrixAccountViewModel.ServerDiscoveryState.Failure).message
+                        "Could not reach this Homeserver."
                     }
 
                     is AddMatrixAccountViewModel.ServerDiscoveryState.Success -> {
-                        "Homeserver ready"
+                        if (passwordMethod !=
+                            null
+                        ) {
+                            "Homeserver ready"
+                        } else {
+                            "This homeserver does not offer password sign-in. Choose another Homeserver URL."
+                        }
                     }
 
                     AddMatrixAccountViewModel.ServerDiscoveryState.None -> {
@@ -168,6 +217,11 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
                 },
             color = TextMuted,
         )
+
+        if (discoveryState is AddMatrixAccountViewModel.ServerDiscoveryState.Failure) {
+            Text("Check the Homeserver URL and your connection, then retry.", color = TextMuted)
+            Button(onClick = { viewModel.serverUrl.update(serverField.text) }) { Text("Retry discovery") }
+        }
 
         Button(
             enabled = passwordMethod != null,
@@ -183,10 +237,10 @@ private fun AddMatrixAccountScreen(viewModel: AddMatrixAccountViewModel) {
 
 @Composable
 private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
-    val usernameField by viewModel.username.collectAsStateCompat()
-    val passwordField by viewModel.password.collectAsStateCompat()
-    val canLogin by viewModel.canLogin.collectAsStateCompat()
-    val loginState by viewModel.addMatrixAccountState.collectAsStateCompat()
+    val usernameField by viewModel.username.collectAsState()
+    val passwordField by viewModel.password.collectAsState()
+    val canLogin by viewModel.canLogin.collectAsState()
+    val loginState by viewModel.addMatrixAccountState.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
@@ -197,31 +251,67 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
             value = usernameField.text,
             onValueChange = { viewModel.username.update(it) },
             label = { Text("Username") },
+            keyboardOptions =
+                KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                ),
             singleLine = true,
         )
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
             value = passwordField.text,
             onValueChange = { viewModel.password.update(it) },
             label = { Text("Password") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions =
+                KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Password,
+                ),
             singleLine = true,
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = viewModel::back) { Text("Back") }
-            Button(enabled = canLogin, onClick = viewModel::tryLogin) { Text("Log In") }
+            Button(
+                enabled = canLogin && loginState != AddMatrixAccountState.Connecting,
+                onClick = viewModel::tryLogin,
+            ) {
+                Text("Log In")
+            }
         }
 
+        if (loginState is AddMatrixAccountState.Failure) {
+            Text(
+                "Check your username and password, then Log In again. Use Back to change Homeserver.",
+                color = TextMuted,
+            )
+        }
         Text(
             text =
                 when (loginState) {
-                    AddMatrixAccountState.None -> ""
-                    AddMatrixAccountState.Connecting -> "Connecting..."
-                    AddMatrixAccountState.Success -> "Connected"
-                    is AddMatrixAccountState.Failure -> (loginState as AddMatrixAccountState.Failure).message
+                    AddMatrixAccountState.None -> {
+                        ""
+                    }
+
+                    AddMatrixAccountState.Connecting -> {
+                        "Connecting..."
+                    }
+
+                    AddMatrixAccountState.Success -> {
+                        "Connected"
+                    }
+
+                    is AddMatrixAccountState.Failure -> {
+                        "Could not sign in. Check your username, password, Homeserver and connection."
+                    }
                 },
             color = TextMuted,
         )
@@ -535,9 +625,6 @@ private fun ChatPanel(
         }
     }
 }
-
-@Composable
-private fun <T> StateFlow<T>.collectAsStateCompat() = collectAsState()
 
 private fun routeStatus(route: RootRouter.Wrapper): String =
     when (route) {
