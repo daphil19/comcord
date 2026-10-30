@@ -107,27 +107,46 @@ class ComcordApplicationHost(
                         rootLifecycle.resume()
                         mutableState.value = ComcordApplicationState.Ready(messenger, root)
                     }
+                } catch (failure: TimeoutCancellationException) {
+                    recoverInitialization(failure, created)
+                } catch (cancelled: CancellationException) {
+                    discardInitialization(cancelled, created)
+                    throw cancelled
                 } catch (failure: Exception) {
-                    // Retain the original failure if cleanup itself fails as well.
-                    try {
-                        if (multi == null) multi = created
-                        release()
-                    } catch (cleanupFailure: Exception) {
-                        failure.addSuppressed(cleanupFailure)
-                    }
-                    if (failure is CancellationException && failure !is TimeoutCancellationException) throw failure
-                    if (!destroyed) {
-                        mutableState.value =
-                            ComcordApplicationState.Failure(
-                                "Could not open local Account storage. " +
-                                    "Retry, or close other Comcord windows and try again.",
-                            )
-                    }
+                    recoverInitialization(failure, created)
                 } finally {
                     initializer = null
                 }
             }
         }
+
+    private suspend fun recoverInitialization(
+        failure: Exception,
+        created: MatrixMultiMessenger?,
+    ) {
+        discardInitialization(failure, created)
+        if (!destroyed) {
+            mutableState.value =
+                ComcordApplicationState.Failure(
+                    "Could not open local Account storage. " +
+                        "Retry, or close other Comcord windows and try again.",
+                )
+        }
+    }
+
+    // Cleanup crosses the same SDK/platform boundary; preserve the original failure.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun discardInitialization(
+        failure: Exception,
+        created: MatrixMultiMessenger?,
+    ) {
+        try {
+            if (multi == null) multi = created
+            release()
+        } catch (cleanupFailure: Exception) {
+            failure.addSuppressed(cleanupFailure)
+        }
+    }
 
     fun resume() {
         if (destroyed) return
