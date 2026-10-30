@@ -38,6 +38,6 @@ suspend fun main() {
         })
     if (!document.hidden) host.resume()
     ComposeViewport {
-        host.Content(factory = { MatrixMultiMessenger.create { comcordMatrixConfig() } })
+        host.Content(factory = { MatrixMultiMessenger.create { comcordMatrixConfig(host) } })
     }
 }

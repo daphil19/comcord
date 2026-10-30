@@ -54,13 +54,13 @@ fun InitializationFailureScreen(
             is MatrixClientInitializationException.DatabaseKeysManipulatedException -> {
                 Text(
                     "The local storage keys have changed unexpectedly. " +
-                        "Continuing removes this local profile and its Account data. " +
+                        "Continuing removes this local Account data for all signed-in Accounts. " +
                         "Your Homeserver Account is not deleted.",
                 )
                 if (confirmRemoval) {
-                    Button(onClick = viewModel::confirmDeletion) { Text("Confirm remove local profile") }
+                    Button(onClick = viewModel::confirmDeletion) { Text("Confirm remove local Account data") }
                 } else {
-                    Button(onClick = { confirmRemoval = true }) { Text("Remove local profile…") }
+                    Button(onClick = { confirmRemoval = true }) { Text("Remove local Account data…") }
                 }
             }
 
@@ -87,7 +87,10 @@ fun InitializationFailureScreen(
 }
 
 @Composable
-fun AuthenticationChallenge(route: UiaRouter.Wrapper, modifier: Modifier = Modifier) {
+fun AuthenticationChallenge(
+    route: UiaRouter.Wrapper,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -179,10 +182,10 @@ private fun ChallengeActions(
     onCancel: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    val working by busy.collectAsState()
-    val error by errors.collectAsState()
-    error?.let { Text(it) }
-    Button(enabled = !working, onClick = onContinue) { Text(if (working) "Authorizing…" else "Continue") }
-    Button(onClick = onCancel) { Text("Cancel") }
-}
+        val working by busy.collectAsState()
+        val error by errors.collectAsState()
+        error?.let { Text(it) }
+        Button(enabled = !working, onClick = onContinue) { Text(if (working) "Authorizing…" else "Continue") }
+        Button(onClick = onCancel) { Text("Cancel") }
+    }
 }

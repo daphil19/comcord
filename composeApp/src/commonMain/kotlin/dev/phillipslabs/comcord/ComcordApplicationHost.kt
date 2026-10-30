@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -74,7 +75,8 @@ class ComcordApplicationHost(
     private var initializer: Job? = null
     private var multi: MatrixMultiMessenger? = null
     private var lifecycle: LifecycleRegistry? = null
-    private var foreground = false
+    private val mutableForeground = MutableStateFlow(false)
+    val foreground: StateFlow<Boolean> = mutableForeground.asStateFlow()
     private var destroyed = false
 
     // SDK/platform bootstrap can fail through storage, crypto or platform exceptions.
@@ -89,14 +91,20 @@ class ComcordApplicationHost(
                 var created: MatrixMultiMessenger? = null
                 try {
                     release()
-                    withTimeout(INITIALIZATION_TIMEOUT_MS) {
-                        created = factory()
-                        val messenger = checkNotNull(created).singleModeMatrixMessenger().first()
+                    val messenger =
+                        withTimeout(INITIALIZATION_TIMEOUT_MS) {
+                            created = factory()
+                            checkNotNull(created).singleModeMatrixMessenger().first()
+                        }
+                    // Storage may restore while hidden; creating the SDK root starts workflows.
+                    // Waiting for the host is not a bootstrap timeout and is canceled on close.
+                    foreground.first { it }
+                    run {
                         val rootLifecycle = LifecycleRegistry()
                         lifecycle = rootLifecycle
                         multi = created
                         val root = messenger.createRoot(DefaultComponentContext(rootLifecycle))
-                        if (foreground) rootLifecycle.resume()
+                        rootLifecycle.resume()
                         mutableState.value = ComcordApplicationState.Ready(messenger, root)
                     }
                 } catch (failure: Exception) {
@@ -123,13 +131,13 @@ class ComcordApplicationHost(
 
     fun resume() {
         if (destroyed) return
-        foreground = true
+        mutableForeground.value = true
         lifecycle?.resume()
     }
 
     fun stop() {
         if (destroyed) return
-        foreground = false
+        mutableForeground.value = false
         lifecycle?.stop()
     }
 
@@ -187,18 +195,27 @@ class ComcordApplicationHost(
 
             else -> {
                 MaterialTheme(colorScheme = darkColorScheme()) {
-                    Column(modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            when (current) {
-                                is ComcordApplicationState.Failure -> current.message
-                                ComcordApplicationState.Closed -> "Comcord closed"
-                                else -> "Opening Comcord…"
-                            },
-                        )
-                        if (current is ComcordApplicationState.Failure) {
-                            Button(onClick = {
-                                scope.launch { initialize(currentFactory) }
-                            }) { Text("Retry") }
+                    Surface(
+                        modifier = modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.onBackground,
+                    ) {
+                        Column(
+                            Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Text(
+                                when (current) {
+                                    is ComcordApplicationState.Failure -> current.message
+                                    ComcordApplicationState.Closed -> "Comcord closed"
+                                    else -> "Opening Comcord…"
+                                },
+                            )
+                            if (current is ComcordApplicationState.Failure) {
+                                Button(onClick = {
+                                    scope.launch { initialize(currentFactory) }
+                                }) { Text("Retry") }
+                            }
                         }
                     }
                 }

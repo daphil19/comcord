@@ -42,6 +42,6 @@ fun MainViewController(): UIViewController {
                 host.destroy()
             }
         }
-        host.Content(factory = { MatrixMultiMessenger.create { comcordMatrixConfig() } })
+        host.Content(factory = { MatrixMultiMessenger.create { comcordMatrixConfig(host) } })
     }
 }
