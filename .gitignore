@@ -19,3 +19,6 @@ captures
 
 # Regenerate experimental gate screenshots under ignored build directories.
 /docs/research/messenger-gate-*/*.png
+
+# Local Python tooling bytecode.
+__pycache__/

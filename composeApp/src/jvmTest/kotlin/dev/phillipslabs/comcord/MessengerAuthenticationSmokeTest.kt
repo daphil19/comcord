@@ -1,14 +1,9 @@
 package dev.phillipslabs.comcord
 
-import com.arkivanov.decompose.DecomposeSettings
 import de.connect2x.trixnity.client.MatrixClient
 import de.connect2x.trixnity.clientserverapi.client.SyncState
 import de.connect2x.trixnity.messenger.MatrixClients
 import de.connect2x.trixnity.messenger.multi.MatrixMultiMessenger
-import de.connect2x.trixnity.messenger.multi.create
-import de.connect2x.trixnity.messenger.secrets.SecretByteArrays
-import de.connect2x.trixnity.messenger.secrets.SecretByteArraysImpl
-import de.connect2x.trixnity.messenger.util.RootPath
 import de.connect2x.trixnity.messenger.viewmodel.RootRouter
 import de.connect2x.trixnity.messenger.viewmodel.RootViewModel
 import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountMethod
@@ -17,124 +12,81 @@ import de.connect2x.trixnity.messenger.viewmodel.connecting.AddMatrixAccountView
 import de.connect2x.trixnity.messenger.viewmodel.initialsync.InitialSyncRouter
 import de.connect2x.trixnity.messenger.viewmodel.util.toFlow
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
-import okio.Path.Companion.toPath
-import org.koin.dsl.module
-import java.io.File
 import java.io.IOException
-import java.nio.file.Files
-import java.util.concurrent.Executors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /** Real workflow/storage test; native rendering and host event dispatch are verified separately. */
-@OptIn(ExperimentalCoroutinesApi::class)
 class MessengerAuthenticationSmokeTest {
     @Test
-    fun discoveryAndPasswordRetryRestoreTheSameDevice() {
-        Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { dispatcher ->
-            val originalSettings = DecomposeSettings.settings
-            // Official Decompose setting: this headless test substitutes one serialized UI thread.
-            DecomposeSettings.settings = originalSettings.copy(mainThreadCheckEnabled = false)
-            Dispatchers.setMain(dispatcher)
-            try {
-                runBlocking(dispatcher) {
-                    SynapseContainer().start().use { synapse ->
-                        SendFaultProxy(synapse.url).use { proxy ->
-                            val storage = Files.createTempDirectory("comcord-auth24-").toFile()
-                            try {
-                                exerciseAuthentication(storage, proxy, dispatcher)
-                            } finally {
-                                storage.deleteRecursively()
-                            }
-                        }
-                    }
-                }
-            } finally {
-                Dispatchers.resetMain()
-                DecomposeSettings.settings = originalSettings
-            }
+    fun discoveryAndPasswordRetryRestoreTheSameDevice() =
+        MessengerWorkflowFixture.run {
+            exerciseAuthentication(this)
         }
-    }
 
-    private suspend fun exerciseAuthentication(
-        storage: File,
-        proxy: SendFaultProxy,
-        dispatcher: CoroutineDispatcher,
-    ) {
-        var host = ComcordApplicationHost(dispatcher)
-        val factory: suspend () -> MatrixMultiMessenger = { messengerFactory(storage, proxy.url, host)() }
-        try {
-            withTimeout(120_000) {
-                proxy.discoveryUnavailable = true
-                host.resume()
-                host.initialize { throw IOException("Controlled local storage failure") }
-                assertIs<ComcordApplicationState.Failure>(host.state.value)
-                host.initialize(factory)
-                val ready = assertIs<ComcordApplicationState.Ready>(host.state.value)
-                stage("discovery/password retry") { authenticate(ready.rootViewModel, proxy, host) }
-                val client =
-                    ready.messenger.di
-                        .get<MatrixClients>()
-                        .first { it.isNotEmpty() }
-                        .values
-                        .single()
-                stage("held initial sync across stop") { assertHeldSync(host, client, proxy) }
-                val main =
-                    (ready.rootViewModel.stack.value.active.instance as RootRouter.Wrapper.Main)
-                        .viewModel
-                stage("settled initial sync") {
-                    main.initialSyncStack.toFlow().first {
-                        it.active.instance ==
-                            InitialSyncRouter.Wrapper.None
-                    }
-                }
-                stage("foreground lifecycle") { assertForegroundSync(host, client) }
-                val room =
-                    client.api.room
-                        .createRoom(name = "Restored Channel")
-                        .getOrThrow()
-                awaitChannel(ready, room.full)
-                val device = client.deviceId
-                host.closeSuspending()
-                assertEquals(ComcordApplicationState.Closed, host.state.value)
-                host = ComcordApplicationHost(dispatcher)
-                stage("storage bootstrap failure") { assertStorageFailure(host, storage, proxy.url) }
-                val restored =
-                    stage("restore while backgrounded") { restoreWhileStopped(host, factory) }
-                stage(
-                    "persistent device restoration",
-                ) { assertRestored(restored, room.full, device) }
+    private suspend fun exerciseAuthentication(fixture: MessengerWorkflowFixture) {
+        val proxy = fixture.proxy
+        var host = fixture.createHost()
+        val factory: suspend () -> MatrixMultiMessenger = { fixture.messengerFactory(host)() }
+
+        proxy.discoveryUnavailable = true
+        host.resume()
+        host.initialize { throw IOException("Controlled local storage failure") }
+        assertIs<ComcordApplicationState.Failure>(host.state.value)
+        host.initialize(factory)
+        val ready = assertIs<ComcordApplicationState.Ready>(host.state.value)
+        stage("discovery/password retry") { authenticate(ready.rootViewModel, proxy, host) }
+        val client =
+            ready.messenger.di
+                .get<MatrixClients>()
+                .first { it.isNotEmpty() }
+                .values
+                .single()
+        stage("held initial sync across stop") { assertHeldSync(host, client, proxy) }
+        val main =
+            (ready.rootViewModel.stack.value.active.instance as RootRouter.Wrapper.Main)
+                .viewModel
+        stage("settled initial sync") {
+            main.initialSyncStack.toFlow().first {
+                it.active.instance ==
+                    InitialSyncRouter.Wrapper.None
             }
-        } finally {
-            host.closeSuspending()
         }
+        stage("foreground lifecycle") { assertForegroundSync(host, client) }
+        val room =
+            client.api.room
+                .createRoom(name = "Restored Channel")
+                .getOrThrow()
+        awaitChannel(ready, room.full)
+        val device = client.deviceId
+        host.closeSuspending()
+        assertEquals(ComcordApplicationState.Closed, host.state.value)
+        host = fixture.createHost()
+        stage("storage bootstrap failure") { assertStorageFailure(fixture, host) }
+        val restored =
+            stage("restore while backgrounded") { restoreWhileStopped(host, factory) }
+        stage(
+            "persistent device restoration",
+        ) { assertRestored(restored, room.full, device) }
     }
 
     private suspend fun assertStorageFailure(
+        fixture: MessengerWorkflowFixture,
         host: ComcordApplicationHost,
-        storage: File,
-        homeserver: String,
     ) {
         val invalidRoot =
-            storage.resolve("unusable-storage-root").apply { writeText("A file cannot contain client storage") }
-        host.initialize(messengerFactory(invalidRoot, homeserver, host))
+            fixture.storage.resolve("unusable-storage-root").apply { writeText("A file cannot contain client storage") }
+        host.initialize(fixture.messengerFactory(host, invalidRoot))
         assertIs<ComcordApplicationState.Failure>(host.state.value)
     }
 
@@ -175,25 +127,6 @@ class MessengerAuthenticationSmokeTest {
             throw AssertionError("Timed out during $name", failure)
         }
     }
-
-    private fun messengerFactory(
-        storage: File,
-        homeserver: String,
-        host: ComcordApplicationHost,
-    ): suspend () -> MatrixMultiMessenger =
-        {
-            MatrixMultiMessenger.create {
-                comcordMatrixConfig(host)
-                appId = "dev.phillipslabs.comcord.auth24"
-                messengerConfiguration {
-                    defaultHomeServer = homeserver
-                    modulesFactories += {
-                        module { single<SecretByteArrays> { SecretByteArraysImpl(get(), lazy { emptyList() }) } }
-                    }
-                }
-                modulesFactories += { module { single { RootPath(storage.absolutePath.toPath()) } } }
-            }
-        }
 
     private suspend fun authenticate(
         root: RootViewModel,

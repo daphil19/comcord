@@ -10,6 +10,10 @@ import java.util.concurrent.TimeUnit
 
 /** Each instance owns a new container, random host port, and disposable database. */
 class SynapseContainer : AutoCloseable {
+    init {
+        SmokeRunContext.registerJvm()
+    }
+
     private val data = Files.createTempDirectory("comcord-synapse-").toFile()
     private var containerId: String? = null
     lateinit var url: String
@@ -22,6 +26,7 @@ class SynapseContainer : AutoCloseable {
                 docker(
                     "run",
                     "--detach",
+                    *SmokeRunContext.dockerLabels().toTypedArray(),
                     "--publish",
                     "127.0.0.1::8008",
                     "--volume",
