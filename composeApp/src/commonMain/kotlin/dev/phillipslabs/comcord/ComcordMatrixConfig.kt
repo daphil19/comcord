@@ -18,6 +18,7 @@ val comcordMatrixConfig: MatrixMultiMessengerConfiguration.() -> Unit = {
 //    httpClientEngine = CIO.create()
 
     messengerConfiguration {
+        timelineViewStateSupported = false
         defaultHomeServer = "https://matrix.org"
     }
 

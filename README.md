@@ -21,7 +21,8 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - Basic auth flow (homeserver + username/password)
 - Initial sync and room directory loading
 - Guild-level grouping based on Matrix spaces (`m.space`) with an always-present `All Rooms` pseudo-guild
-- Timeline rendering deferred until after room-directory flow is stable
+- Messenger-owned Channel and DM timelines with older history and incoming messages
+  (see [implementation and verification](docs/implementation/6-channel-timeline.md))
 
 ## Project structure
 

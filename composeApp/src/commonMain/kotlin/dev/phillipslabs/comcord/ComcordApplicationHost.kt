@@ -199,6 +199,7 @@ class ComcordApplicationHost(
         modifier: Modifier = Modifier,
     ) {
         val application by state.collectAsState()
+        val active by foreground.collectAsState()
         val scope = rememberCoroutineScope()
         val currentFactory by rememberUpdatedState(factory)
         LaunchedEffect(this) { if (state.value == ComcordApplicationState.Loading) initialize(currentFactory) }
@@ -208,6 +209,7 @@ class ComcordApplicationHost(
                     current.rootViewModel,
                     current.messenger,
                     modifier = modifier,
+                    foreground = active,
                     onRetryInitialization = { scope.launch { initialize(currentFactory) } },
                 )
             }

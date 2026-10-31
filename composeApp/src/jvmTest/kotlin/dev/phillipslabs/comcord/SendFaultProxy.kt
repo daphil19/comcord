@@ -30,6 +30,7 @@ class SendFaultProxy(
     @Volatile private var timedHoldNextSend = false
 
     @Volatile var discoveryUnavailable = false
+    val historyGate = RequestGate()
     val loginGate = RequestGate()
     val initialSyncGate = RequestGate()
     val url: String get() = "http://127.0.0.1:${server.address.port}"
@@ -68,6 +69,7 @@ class SendFaultProxy(
                 if (exchange.requestURI.rawPath.endsWith("/sync") && exchange.requestMethod == "GET") {
                     initialSyncGate.awaitIfHeld()
                 }
+                if (exchange.requestURI.rawPath.endsWith("/messages")) historyGate.awaitIfHeld()
                 if (exchange.requestURI.rawPath.contains("/send/")) {
                     if (timedHoldNextSend) {
                         timedHoldNextSend = false
@@ -129,6 +131,7 @@ class SendFaultProxy(
     }
 
     override fun close() {
+        historyGate.release()
         loginGate.release()
         initialSyncGate.release()
         releaseSend()
