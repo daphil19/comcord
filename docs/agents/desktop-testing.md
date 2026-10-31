@@ -27,7 +27,8 @@ artifacts are under `build/reports/matrix-smoke/<run-id>/`: `gradle.log`,
 and shutdown can take additional time after the command deadline. A cleanup error
 makes an otherwise successful run fail.
 
-The runner registers JVM start times, labels owned Synapse containers, and places
+A Gradle startup hook registers the owned daemon before compilation or task work.
+The runner checks JVM start times, labels owned Synapse containers, and places
 temporary test data under the run directory. It cleans those resources without
 resetting the development Compose stack. Use the result's cleanup errors when
 investigating an interrupted run; preserve diagnostics before repeating it.

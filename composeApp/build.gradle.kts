@@ -181,20 +181,6 @@ tasks.register<Test>("matrixSmokeTest") {
         require(runId.matches(Regex("[0-9a-f]{32}")) && runDirectory.name == runId)
         systemProperty("java.io.tmpdir", runDirectory.resolve("resources").absolutePath)
         testLogging.showStandardStreams = true
-        // --no-daemon gives the runner an owned single-use Gradle daemon too.
-        doFirst {
-            val process = ProcessHandle.current()
-            val registry = runDirectory.resolve("jvms").apply { mkdirs() }
-            val startedAt =
-                process
-                    .info()
-                    .startInstant()
-                    .get()
-                    .epochSecond
-            registry.resolve("${process.pid()}.json").writeText(
-                """{"pid":${process.pid()},"started_at":$startedAt,"run_id":"$runId"}""",
-            )
-        }
     }
 }
 

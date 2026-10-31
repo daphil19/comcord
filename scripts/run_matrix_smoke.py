@@ -49,10 +49,11 @@ def terminate_group(process):
     process.wait()
 
 
-def docker(*arguments):
-    return subprocess.run(
+def docker(*arguments, include_stderr=False):
+    result = subprocess.run(
         ["docker", *arguments], capture_output=True, text=True, timeout=10, check=True,
-    ).stdout.strip()
+    )
+    return (result.stdout + result.stderr if include_stderr else result.stdout).strip()
 
 
 def process_identity(pid):
@@ -130,7 +131,7 @@ def capture_diagnostics(artifacts, run_id, workers):
     try:
         containers = docker("ps", "-aq", "--filter", f"label=dev.phillipslabs.comcord.smoke-run={run_id}").split()
         for container in containers:
-            logs = docker("logs", "--tail", "200", container)
+            logs = docker("logs", "--tail", "200", container, include_stderr=True)
             (destination / f"docker-{container}.log").write_text(logs + "\n")
     except (OSError, subprocess.SubprocessError) as failure:
         (destination / "capture-error.txt").write_text(str(failure) + "\n")
@@ -173,7 +174,11 @@ def main():
     resources = artifacts / "resources"
     resources.mkdir()
     environment = dict(os.environ, COMCORD_SMOKE_RUN_ID=run_id, COMCORD_SMOKE_RUN_DIR=str(artifacts))
-    command = [str(project / "gradlew"), "--no-daemon", "--console=plain", ":composeApp:matrixSmokeTest"]
+    command = [
+        str(project / "gradlew"), "--no-daemon", "--console=plain",
+        "--init-script", str(project / "scripts/smoke-run.init.gradle.kts"),
+        ":composeApp:matrixSmokeTest",
+    ]
     if arguments.workflows_only:
         command.append("-PmatrixWorkflowsOnly=true")
     for pattern in arguments.tests:

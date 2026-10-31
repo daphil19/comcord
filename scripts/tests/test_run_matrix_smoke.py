@@ -28,11 +28,14 @@ class SmokeRunnerTest(unittest.TestCase):
             "#!/usr/bin/env python3\nimport json, os, sys\nfrom pathlib import Path\n"
             "with Path(os.environ['DOCKER_CALLS']).open('a') as log: log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
             "if sys.argv[1] == 'ps': print(os.environ.get('OWNED_CONTAINER', ''))\n"
-            "if sys.argv[1] == 'logs': print('owned container diagnostic')\n"
+            "if sys.argv[1] == 'logs': print('owned container diagnostic'); print('owned stderr diagnostic', file=sys.stderr)\n"
         )
         docker.chmod(0o755)
         self.environment = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
                                 DOCKER_CALLS=str(self.project / "docker-calls.jsonl"))
+        init_script = RUNNER.with_name("smoke-run.init.gradle.kts")
+        if init_script.exists():
+            shutil.copyfile(init_script, self.project / "scripts/smoke-run.init.gradle.kts")
         self.gradle = self.project / "gradlew"
         self.gradle.write_text(
             "#!/usr/bin/env python3\nimport sys\nprint('fixture output', flush=True)\nsys.exit(7)\n"
@@ -138,9 +141,11 @@ class SmokeRunnerTest(unittest.TestCase):
         self.assertEqual(124, result.returncode, result.stdout + result.stderr)
         directory, _ = self.report(result)
         self.assertIn("owned container diagnostic", (directory / "diagnostics/docker-owned-container.log").read_text())
+        self.assertIn("owned stderr diagnostic", (directory / "diagnostics/docker-owned-container.log").read_text())
 
-    def write_registered_worker(self, start_offset=0):
+    def write_registered_worker(self, start_offset=0, require_startup_hook=False):
         self.environment["START_OFFSET"] = str(start_offset)
+        self.environment["REQUIRE_STARTUP_HOOK"] = str(int(require_startup_hook))
         self.gradle.write_text(
             "#!/usr/bin/env python3\nimport os, subprocess, sys, json, time\n"
             "from pathlib import Path\nfrom datetime import datetime, timezone\n"
@@ -148,13 +153,15 @@ class SmokeRunnerTest(unittest.TestCase):
             "Path('child.pid').write_text(str(child.pid))\n"
             "start = subprocess.check_output(['ps', '-p', str(child.pid), '-o', 'lstart='], text=True, env=dict(os.environ, TZ='UTC', LC_ALL='C')).strip()\n"
             "epoch = int(datetime.strptime(start, '%a %b %d %H:%M:%S %Y').replace(tzinfo=timezone.utc).timestamp())\n"
+            "if os.environ['REQUIRE_STARTUP_HOOK'] == '1' and '--init-script' not in sys.argv: time.sleep(60)\n"
+            "if '--init-script' in sys.argv: assert Path(sys.argv[sys.argv.index('--init-script') + 1]).is_file()\n"
             "registry = Path(os.environ['COMCORD_SMOKE_RUN_DIR']) / 'jvms'\nregistry.mkdir()\n"
             "(registry / (str(child.pid) + '.json')).write_text(json.dumps(dict(pid=child.pid, started_at=epoch + int(os.environ['START_OFFSET']), run_id=os.environ['COMCORD_SMOKE_RUN_ID'])))\n"
             "time.sleep(60)\n"
         )
 
-    def test_timeout_stops_a_registered_worker_in_another_process_group(self):
-        self.write_registered_worker()
+    def test_timeout_stops_a_detached_daemon_before_task_execution(self):
+        self.write_registered_worker(require_startup_hook=True)
         child = None
         try:
             result = self.run_runner("--timeout", "0.6")
