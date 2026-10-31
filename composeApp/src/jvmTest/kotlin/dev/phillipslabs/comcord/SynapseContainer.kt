@@ -27,6 +27,9 @@ class SynapseContainer : AutoCloseable {
                     "run",
                     "--detach",
                     *SmokeRunContext.dockerLabels().toTypedArray(),
+                    // Native Linux bind mounts retain the test process's private directory ownership.
+                    "--user",
+                    "${Files.getAttribute(data.toPath(), "unix:uid")}:${Files.getAttribute(data.toPath(), "unix:gid")}",
                     "--publish",
                     "127.0.0.1::8008",
                     "--volume",
