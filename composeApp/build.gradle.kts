@@ -169,6 +169,10 @@ tasks.register<Test>("matrixSmokeTest") {
     testClassesDirs = jvmTest.get().testClassesDirs
     classpath = jvmTest.get().classpath
     include("**/*SmokeTest.class")
+    if (providers.gradleProperty("matrixWorkflowsOnly").orNull == "true") {
+        // CI follows production workflows as new classes land; experiments remain explicit runs.
+        exclude("**/*GateSmokeTest.class", "**/PlatformGateHostSmokeTest.class")
+    }
     outputs.upToDateWhen { false }
     val runId = providers.environmentVariable("COMCORD_SMOKE_RUN_ID").orNull
     val runPath = providers.environmentVariable("COMCORD_SMOKE_RUN_DIR").orNull

@@ -199,6 +199,17 @@ class SmokeRunnerTest(unittest.TestCase):
         calls = [json.loads(line) for line in (self.project / "docker-calls.jsonl").read_text().splitlines()]
         self.assertIn(["rm", "--force", "owned-container"], calls)
 
+    def test_workflow_mode_is_forwarded_without_losing_explicit_filters(self):
+        self.gradle.write_text(
+            "#!/usr/bin/env python3\nimport json, sys\nfrom pathlib import Path\n"
+            "Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+        )
+        result = self.run_runner("--workflows-only", "--tests", "*AuthenticationSmokeTest")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        arguments = json.loads((self.project / "arguments.json").read_text())
+        self.assertIn("-PmatrixWorkflowsOnly=true", arguments)
+        self.assertEqual("*AuthenticationSmokeTest", arguments[arguments.index("--tests") + 1])
+
 
 if __name__ == "__main__":
     unittest.main()

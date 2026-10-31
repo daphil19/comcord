@@ -159,6 +159,7 @@ def main():
         epilog="Exit: Gradle status; 124 on deadline; 128+signal on interruption; 1 on setup/cleanup failure. "
                "Logs, result.json and failure diagnostics are kept under build/reports/matrix-smoke/.",
     )
+    parser.add_argument("--workflows-only", action="store_true", help="Run production workflows, excluding opt-in adoption gate fixtures")
     parser.add_argument("--tests", action="append", default=[], help="Gradle test filter; may be repeated")
     parser.add_argument("--timeout", type=float, default=600, help="Outer deadline in seconds (default: 600)")
     arguments = parser.parse_args()
@@ -173,6 +174,8 @@ def main():
     resources.mkdir()
     environment = dict(os.environ, COMCORD_SMOKE_RUN_ID=run_id, COMCORD_SMOKE_RUN_DIR=str(artifacts))
     command = [str(project / "gradlew"), "--no-daemon", "--console=plain", ":composeApp:matrixSmokeTest"]
+    if arguments.workflows_only:
+        command.append("-PmatrixWorkflowsOnly=true")
     for pattern in arguments.tests:
         command.extend(["--tests", pattern])
     process = None

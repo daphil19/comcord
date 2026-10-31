@@ -59,3 +59,25 @@ tasks.register("buildDev") {
     description = "Assembles development artifacts and runs both modules' checks and tests."
     dependsOn(assembleDev, tasks.named("check"))
 }
+
+// Shared by the local feedback loop and Linux CI; keep task ownership in the modules.
+tasks.register("verifyJvmDev") {
+    group = "verification"
+    description = "Runs static checks and JVM/Android host tests without web or iOS linking."
+    dependsOn(
+        "ktlintCheck",
+        ":composeApp:ktlintCheck",
+        ":composeApp:detekt",
+        ":composeApp:detektMainJvm",
+        ":composeApp:detektTestJvm",
+        ":composeApp:detektMainAndroid",
+        ":composeApp:detektHostTestAndroid",
+        ":composeApp:jvmTest",
+        ":composeApp:testAndroidHostTest",
+        ":androidApp:ktlintCheck",
+        ":androidApp:detekt",
+        ":androidApp:detektMain",
+        ":androidApp:detektTest",
+        ":androidApp:test",
+    )
+}
