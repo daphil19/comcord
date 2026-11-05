@@ -88,7 +88,7 @@ class MessengerTimelineGate private constructor(
     private val synapse: SynapseContainer,
     private val storage: File,
     private val multi: MatrixMultiMessenger,
-    private val messenger: MatrixMessenger,
+    val messenger: MatrixMessenger,
     val client: MatrixClient,
     val roomA: RoomId,
     val roomB: RoomId,
@@ -142,6 +142,17 @@ class MessengerTimelineGate private constructor(
         return Session(roomId, lifecycle, job, vm).also {
             sessions += it
             current = it
+        }
+    }
+
+    var productionForeground by mutableStateOf(true)
+
+    @Composable
+    fun ProductionContent(modifier: Modifier = Modifier) {
+        MaterialTheme(colorScheme = androidx.compose.material3.darkColorScheme()) {
+            Surface(modifier.fillMaxSize()) {
+                if (visible) ComcordAccountShell(store, messenger, foreground = productionForeground)
+            }
         }
     }
 

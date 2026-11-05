@@ -3,7 +3,11 @@
 ## Status
 
 Accepted. Supersedes [ADR 0002](0002-trixnity-boundary.md).
-Implementation and experiments are separate work and have not started.
+Implementation and experiments are tracked separately. Gates #21 and #22 passed,
+and #23 was accepted by the user; the merged #24 foundation supplies authentication
+and host lifecycle. Production timeline adoption is recorded in the
+[#6 implementation evidence](../implementation/6-channel-timeline.md).
+The investigation narrative and staged outline below describe the original decision.
 
 ## Decision
 

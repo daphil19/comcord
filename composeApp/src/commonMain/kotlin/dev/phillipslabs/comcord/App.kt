@@ -77,7 +77,6 @@ private val AppBg = Color(0xFF1A1D24)
 private val ServerRailBg = Color(0xFF12141A)
 private val ChannelPanelBg = Color(0xFF21252E)
 private val ChatPanelBg = Color(0xFF2A2E38)
-private val ComposerBg = Color(0xFF3A3F4B)
 private val Accent = Color(0xFF4E69FF)
 private val TextStrong = Color(0xFFE6E8EE)
 private val TextMuted = Color(0xFFA7ACB7)
@@ -88,6 +87,7 @@ fun App(
     matrixMessenger: MatrixMessenger,
     modifier: Modifier = Modifier,
     onRetryInitialization: () -> Unit = {},
+    foreground: Boolean = true,
 ) {
     val uiaState = rootViewModel.uiaStack.subscribeAsState()
     val stackState = rootViewModel.stack.subscribeAsState()
@@ -128,7 +128,7 @@ fun App(
                                 Button(onClick = onRetryInitialization) { Text("Retry connection") }
                             }
                         } else {
-                            ActiveAccountScreen(matrixMessenger)
+                            ActiveAccountScreen(matrixMessenger, foreground)
                         }
                     }
 
@@ -319,7 +319,10 @@ private fun PasswordLoginScreen(viewModel: PasswordLoginViewModel) {
 }
 
 @Composable
-private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
+private fun ActiveAccountScreen(
+    matrixMessenger: MatrixMessenger,
+    foreground: Boolean,
+) {
     val sources = remember(matrixMessenger) { matrixMessenger.accountSources() }
     val source by sources.collectAsState(initial = null)
     val accountSource = source
@@ -329,33 +332,42 @@ private fun ActiveAccountScreen(matrixMessenger: MatrixMessenger) {
         key(accountSource) {
             val scope = rememberCoroutineScope()
             val store = remember(accountSource) { AccountStore(accountSource, scope) }
-            MainShell(store)
+            ComcordAccountShell(store, matrixMessenger, foreground = foreground)
         }
     }
 }
 
 @Composable
-private fun MainShell(store: AccountStore) {
+internal fun ComcordAccountShell(
+    store: AccountStore,
+    messenger: MatrixMessenger,
+    modifier: Modifier = Modifier,
+    foreground: Boolean = true,
+) {
     val state by store.state.collectAsState()
-    val roomDirectory = state.directory
-    val roomsForServer = state.rooms
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    var showChannels by remember { mutableStateOf(false) }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val compact = maxWidth < 900.dp
-
         Row(modifier = Modifier.fillMaxSize()) {
-            ServerRail(
-                compact = compact,
-                state = state,
-                store = store,
-            )
-            if (!compact) {
-                ChannelPanel(state, store)
+            ServerRail(compact = compact, state = state, store = store)
+            if (!compact) ChannelPanel(state, store)
+            Column(Modifier.weight(1f)) {
+                if (compact) {
+                    Button(onClick = { showChannels = !showChannels }) { Text("Channels and DMs") }
+                }
+                if (compact && showChannels) {
+                    ChannelPanel(state, store, onSelect = { showChannels = false })
+                } else {
+                    ChatPanel(
+                        selectedChannel = state.selectedRoom?.name ?: "Select a Channel",
+                        roomsCount = state.rooms.size,
+                        syncStateLabel = state.directory.syncStateLabel,
+                        store = store,
+                        messenger = messenger,
+                        foreground = foreground,
+                    )
+                }
             }
-            ChatPanel(
-                selectedChannel = state.selectedRoom?.name ?: "Select a Channel",
-                roomsCount = roomsForServer.size,
-                syncStateLabel = roomDirectory.syncStateLabel,
-            )
         }
     }
 }
@@ -455,6 +467,7 @@ private fun ServerDot(
 private fun ChannelPanel(
     state: AccountState,
     store: AccountStore,
+    onSelect: () -> Unit = {},
 ) {
     val name = state.destinations.firstOrNull { it.id == state.selectedServerId }?.name ?: "Select a View or Server"
     val directMessages = state.selectedServerId == DIRECT_MESSAGES_VIEW_ID
@@ -484,6 +497,7 @@ private fun ChannelPanel(
                     selected = state.selectedRoomId == channel.id,
                     directMessage = directMessages,
                     store = store,
+                    onSelect = onSelect,
                 )
             }
             state.categories.forEach { category ->
@@ -505,7 +519,7 @@ private fun ChannelPanel(
                 if (category.id !in state.collapsedCategoryIds) {
                     items(category.channels.size) { index ->
                         val channel = category.channels[index]
-                        ChannelRow(channel, state.selectedRoomId == channel.id, false, store)
+                        ChannelRow(channel, state.selectedRoomId == channel.id, false, store, onSelect)
                     }
                 }
             }
@@ -542,6 +556,7 @@ private fun ChannelRow(
     selected: Boolean,
     directMessage: Boolean,
     store: AccountStore,
+    onSelect: () -> Unit = {},
 ) {
     Row(
         modifier =
@@ -549,8 +564,10 @@ private fun ChannelRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (selected) Color(0xFF343A47) else Color(0xFF2A2E37))
-                .clickable { store.selectRoom(channel.id) }
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .clickable {
+                    store.selectRoom(channel.id)
+                    onSelect()
+                }.padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (directMessage) {
@@ -599,6 +616,9 @@ private fun ChatPanel(
     selectedChannel: String,
     roomsCount: Int,
     syncStateLabel: String,
+    store: AccountStore,
+    messenger: MatrixMessenger,
+    foreground: Boolean,
 ) {
     Column(
         modifier =
@@ -612,16 +632,14 @@ private fun ChatPanel(
         Text("Synced rooms in view: $roomsCount", color = TextMuted)
         Spacer(modifier = Modifier.height(8.dp))
         Text("State: $syncStateLabel", color = TextMuted)
-        Spacer(modifier = Modifier.weight(1f))
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(ComposerBg)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-        ) {
-            Text(text = "Timeline view next", color = TextMuted)
+        val account by store.state.collectAsState()
+        val selected = account.selectedRoomId
+        if (selected == null) {
+            Text("Select a Channel or DM to read messages", color = TextMuted)
+        } else if (foreground) {
+            key(account.accountId, selected) {
+                ChannelTimeline(messenger, account.accountId, selected, Modifier.weight(1f))
+            }
         }
     }
 }
