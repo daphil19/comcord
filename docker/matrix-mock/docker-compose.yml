@@ -19,5 +19,6 @@ services:
       - ./data:/data
       - ./homeserver.yaml:/data/homeserver.yaml:ro
       - ./seed-users.sh:/seed/seed-users.sh:ro
+      - ./seed-timeline.py:/seed/seed-timeline.py:ro
       - ./users.csv:/seed/users.csv:ro
     entrypoint: ["/bin/sh", "/seed/seed-users.sh"]

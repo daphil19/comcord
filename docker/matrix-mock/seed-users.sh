@@ -71,3 +71,6 @@ do
 done < "$USERS_FILE"
 
 echo "User seeding complete."
+
+echo "Seeding timeline fixtures..."
+python /seed/seed-timeline.py
