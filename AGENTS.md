@@ -14,6 +14,7 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 
 ## Verification
 
+- Fast static checks and JVM/Android host tests: `./gradlew verifyJvmDev`
 - Everyday checks, tests, and cross-platform compilation: `./gradlew buildDev` (macOS, Xcode, Android SDK)
 - Cross-platform compilation only: `./gradlew assembleDev` (same requirements)
 - Checks/tests, including compilation of their required inputs: `./gradlew check`
@@ -25,9 +26,12 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 - Web lock refresh: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
 - iOS: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Fast shared/store tests on JVM (no Docker): `./gradlew :composeApp:jvmTest`
-- Matrix adapter smoke tests: `./gradlew :composeApp:matrixSmokeTest` (Docker required; starts and removes an isolated Synapse container, random port, and fresh database)
+- Matrix workflow smoke tests: `./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true` (Docker required; isolated Synapse runs)
 - Full platform tests: `./gradlew :composeApp:allTests` (run `:composeApp:matrixSmokeTest` separately for Matrix integration)
 - Local homeserver: `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
+
+For desktop/web UI verification and Messenger workflow test setup, read the
+[testing runbook](docs/agents/desktop-testing.md).
 
 Choose the narrowest verification that covers the change: relevant tests/checks,
 affected-platform compilation, or both when needed. For

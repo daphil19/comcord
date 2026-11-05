@@ -2,6 +2,7 @@ import dev.detekt.gradle.Detekt
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
+import java.time.Duration
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -169,7 +170,12 @@ tasks.register<Test>("matrixSmokeTest") {
     testClassesDirs = jvmTest.get().testClassesDirs
     classpath = jvmTest.get().classpath
     include("**/*SmokeTest.class")
+    if (providers.gradleProperty("matrixWorkflowsOnly").orNull == "true") {
+        // CI follows production workflows as new classes land; experiments remain explicit runs.
+        exclude("**/*GateSmokeTest.class", "**/PlatformGateHostSmokeTest.class")
+    }
     outputs.upToDateWhen { false }
+    timeout.set(Duration.ofMinutes(10))
 }
 
 // Kotlin 2.4.21's incremental Wasm test linker emits invalid GC types in the

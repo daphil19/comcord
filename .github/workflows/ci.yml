@@ -52,6 +52,9 @@ jobs:
       - name: Install Android platform
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
 
+      - name: Fast static and JVM verification
+        run: ./gradlew verifyJvmDev
+
       - name: Verify Android, JVM, and unit tests
         run: |
           ./gradlew \
@@ -70,6 +73,57 @@ jobs:
           xvfb-run ./gradlew \
             :composeApp:jsBrowserTest \
             :composeApp:wasmJsBrowserTest
+
+
+      - name: Upload verification reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-verification-reports
+          path: |
+            **/build/reports/ktlint/
+            **/build/reports/detekt/
+            **/build/test-results/
+          if-no-files-found: warn
+
+  verify-matrix:
+    name: Verify Matrix workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Verify isolated Matrix workflows
+        run: ./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true
+
+      - name: Upload Matrix workflow reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: matrix-workflow-reports
+          path: |
+            composeApp/build/reports/tests/matrixSmokeTest/
+            composeApp/build/test-results/matrixSmokeTest/
+          if-no-files-found: warn
 
   verify-macos:
     name: Verify macOS
@@ -101,6 +155,7 @@ jobs:
     needs:
       - verify-linux
       - verify-macos
+      - verify-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -144,6 +199,7 @@ jobs:
     needs:
       - verify-linux
       - verify-macos
+      - verify-matrix
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -198,6 +254,7 @@ jobs:
     needs:
       - verify-linux
       - verify-macos
+      - verify-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -232,6 +289,7 @@ jobs:
     needs:
       - verify-linux
       - verify-macos
+      - verify-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -269,6 +327,7 @@ jobs:
     needs:
       - verify-linux
       - verify-macos
+      - verify-matrix
     runs-on: macos-latest
     timeout-minutes: 45
 
