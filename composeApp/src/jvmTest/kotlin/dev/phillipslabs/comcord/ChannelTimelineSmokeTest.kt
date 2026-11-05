@@ -258,7 +258,10 @@ class ChannelTimelineSmokeTest {
             }
         }
 
-    private fun assertTimelineMessage(probe: TimelineProbe, body: String) {
+    private fun assertTimelineMessage(
+        probe: TimelineProbe,
+        body: String,
+    ) {
         // A resumed timeline can open at older history; lazy lists omit offscreen semantics.
         compose.waitUntil(30_000) {
             probe.sessions.lastOrNull()?.vm?.elements?.value?.any {
