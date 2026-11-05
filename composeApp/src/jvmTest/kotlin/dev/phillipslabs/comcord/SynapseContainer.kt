@@ -10,10 +10,6 @@ import java.util.concurrent.TimeUnit
 
 /** Each instance owns a new container, random host port, and disposable database. */
 class SynapseContainer : AutoCloseable {
-    init {
-        SmokeRunContext.registerJvm()
-    }
-
     private val data = Files.createTempDirectory("comcord-synapse-").toFile()
     private var containerId: String? = null
     lateinit var url: String
@@ -26,7 +22,6 @@ class SynapseContainer : AutoCloseable {
                 docker(
                     "run",
                     "--detach",
-                    *SmokeRunContext.dockerLabels().toTypedArray(),
                     // Native Linux bind mounts retain the test process's private directory ownership.
                     "--user",
                     "${Files.getAttribute(data.toPath(), "unix:uid")}:${Files.getAttribute(data.toPath(), "unix:gid")}",

@@ -52,14 +52,6 @@ jobs:
       - name: Install Android platform
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      - name: Verify bounded-runner behavior
-        run: python3 -m unittest discover -s scripts/tests -v
-
       - name: Fast static and JVM verification
         run: ./gradlew verifyJvmDev
 
@@ -112,11 +104,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -126,7 +113,7 @@ jobs:
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
 
       - name: Verify isolated Matrix workflows
-        run: python3 scripts/run_matrix_smoke.py --workflows-only --timeout 600
+        run: ./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true
 
       - name: Upload Matrix workflow reports
         if: always()
@@ -136,9 +123,6 @@ jobs:
           path: |
             composeApp/build/reports/tests/matrixSmokeTest/
             composeApp/build/test-results/matrixSmokeTest/
-            build/reports/matrix-smoke/*/gradle.log
-            build/reports/matrix-smoke/*/result.json
-            build/reports/matrix-smoke/*/diagnostics/
           if-no-files-found: warn
 
   verify-macos:

@@ -2,6 +2,7 @@ import dev.detekt.gradle.Detekt
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
+import java.time.Duration
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -174,14 +175,7 @@ tasks.register<Test>("matrixSmokeTest") {
         exclude("**/*GateSmokeTest.class", "**/PlatformGateHostSmokeTest.class")
     }
     outputs.upToDateWhen { false }
-    val runId = providers.environmentVariable("COMCORD_SMOKE_RUN_ID").orNull
-    val runPath = providers.environmentVariable("COMCORD_SMOKE_RUN_DIR").orNull
-    if (runId != null && runPath != null) {
-        val runDirectory = File(runPath)
-        require(runId.matches(Regex("[0-9a-f]{32}")) && runDirectory.name == runId)
-        systemProperty("java.io.tmpdir", runDirectory.resolve("resources").absolutePath)
-        testLogging.showStandardStreams = true
-    }
+    timeout.set(Duration.ofMinutes(10))
 }
 
 // Kotlin 2.4.21's incremental Wasm test linker emits invalid GC types in the

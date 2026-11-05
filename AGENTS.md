@@ -26,8 +26,8 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 - Web lock refresh: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
 - iOS: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
 - Fast shared/store tests on JVM (no Docker): `./gradlew :composeApp:jvmTest`
-- Matrix workflow smoke tests: `python3 scripts/run_matrix_smoke.py --workflows-only` (Python 3 and Docker; bounded isolated Synapse runs)
-- Full platform tests: `./gradlew :composeApp:allTests` (run the bounded Matrix workflow runner separately)
+- Matrix workflow smoke tests: `./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true` (Docker required; isolated Synapse runs)
+- Full platform tests: `./gradlew :composeApp:allTests` (run `:composeApp:matrixSmokeTest` separately for Matrix integration)
 - Local homeserver: `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
 
 For desktop/web UI verification and Messenger workflow test setup, read the

@@ -2,7 +2,7 @@
 
 Use this runbook for desktop/web UI checks or new Messenger workflow smoke tests.
 The [agent guide](../../AGENTS.md) defines required final verification; Gradle task
-and runner help are authoritative for their options.
+definitions are authoritative for their options.
 
 ## Start with the smallest automated check
 
@@ -11,40 +11,34 @@ expensive platform linking. It reuses the modules' existing checks, including
 JVM/Android typed Detekt. Shared/build changes still finish with `buildDev` as
 required by the agent guide.
 
-For real SDK workflows, use the bounded runner from the target checkout:
+For real SDK workflows, run Gradle directly from the target checkout:
 
 ```sh
-python3 scripts/run_matrix_smoke.py --help
-python3 scripts/run_matrix_smoke.py --workflows-only
+./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true
 # Narrow a run while implementing one behavior:
-python3 scripts/run_matrix_smoke.py --workflows-only --tests '*MessengerAuthenticationSmokeTest'
+./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true --tests '*MessengerAuthenticationSmokeTest'
 ```
 
-Python 3 and Docker are required on macOS/Linux. The runner starts a single-use
-Gradle daemon, streams output, and enforces an outer command deadline. Failure
-artifacts are under `build/reports/matrix-smoke/<run-id>/`: `gradle.log`,
-`result.json`, and available owned-JVM/container diagnostics. Bounded diagnostics
-and shutdown can take additional time after the command deadline. A cleanup error
-makes an otherwise successful run fail.
+Docker is required. Gradle bounds the smoke task to ten minutes; the fixture also
+bounds its workflow scenario. CI has a separate job timeout and uploads Gradle's
+HTML/XML results from `composeApp/build/reports/tests/matrixSmokeTest/` and
+`composeApp/build/test-results/matrixSmokeTest/`.
 
-A Gradle startup hook registers the owned daemon before compilation or task work.
-The runner checks JVM start times, labels owned Synapse containers, and places
-temporary test data under the run directory. It cleans those resources without
-resetting the development Compose stack. Use the result's cleanup errors when
-investigating an interrupted run; preserve diagnostics before repeating it.
+The fixtures close their disposable clients, containers and temporary storage on
+normal completion or failure. A forced process termination can bypass cleanup;
+inspect and remove only resources from that test run if a local run is killed.
 
-`--workflows-only` includes production `*SmokeTest` classes as they land. Adoption
+`-PmatrixWorkflowsOnly=true` includes production `*SmokeTest` classes as they land. Adoption
 `*GateSmokeTest` experiments and the opt-in platform host are separate. To run a
 particular experiment, omit that flag and select its class, for example:
 
 ```sh
-python3 scripts/run_matrix_smoke.py --tests '*MessengerTimelineGateSmokeTest'
+./gradlew :composeApp:matrixSmokeTest --tests '*MessengerTimelineGateSmokeTest'
 ```
 
-With no filters or workflow flag, the runner executes the complete Matrix smoke
+With no filters or workflow property, Gradle executes the complete Matrix smoke
 task, including experimental fixtures. The [CI workflow](../../.github/workflows/ci.yml)
-shows the required production selection. The runner's CLI regressions can run
-without Docker using `python3 -m unittest discover -s scripts/tests -v`.
+shows the required production selection.
 
 ## Reuse the headless workflow fixture
 
