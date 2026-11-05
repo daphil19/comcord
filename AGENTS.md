@@ -64,6 +64,12 @@ release tasks and APK/AAB outputs belong to `androidApp`.
 
 ## Matrix workflows and account state
 
+Comcord is powered by [Trixnity Messenger](https://gitlab.com/connect2x/trixnity-messenger/trixnity-messenger/).
+For questions about Messenger setup, APIs, or workflows, read its
+[upstream README](https://gitlab.com/connect2x/trixnity-messenger/trixnity-messenger/#readme)
+and follow the relevant documentation links. Check examples against the Messenger
+version declared in `gradle/libs.versions.toml`.
+
 For timeline, composer, authentication, verification, recovery, or account
 lifecycle work, read [ADR 0005](docs/adr/0005-messenger-first-matrix-workflows.md).
 It supersedes ADR 0002: prefer Messenger workflows and allow feature composables
