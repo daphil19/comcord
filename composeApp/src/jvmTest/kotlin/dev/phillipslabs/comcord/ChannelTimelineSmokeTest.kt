@@ -82,9 +82,7 @@ class ChannelTimelineSmokeTest {
                 compose.onNodeWithText("Late A").assertDoesNotExist()
                 screenshot("incoming")
                 compose.onNodeWithText("#Gate A").performClick()
-                compose.waitUntil(30_000) {
-                    compose.onAllNodes(hasText("Late A")).fetchSemanticsNodes().isNotEmpty()
-                }
+                assertTimelineMessage(probe, "Late A")
                 assertEquals(3, probe.sessions.size)
                 fixture.client.api.room
                     .leaveRoom(fixture.roomA)
@@ -122,9 +120,7 @@ class ChannelTimelineSmokeTest {
                 compose.onNodeWithTag("timeline").assertDoesNotExist()
                 fixture.send(fixture.roomA, "While hidden")
                 compose.runOnIdle { fixture.productionForeground = true }
-                compose.waitUntil(30_000) {
-                    compose.onAllNodes(hasText("While hidden")).fetchSemanticsNodes().isNotEmpty()
-                }
+                assertTimelineMessage(probe, "While hidden")
                 compose.runOnIdle { fixture.visible = false }
                 compose.waitUntil(10_000) {
                     probe.sessions.all {
@@ -261,6 +257,20 @@ class ChannelTimelineSmokeTest {
                 Unit
             }
         }
+
+    private fun assertTimelineMessage(
+        probe: TimelineProbe,
+        body: String,
+    ) {
+        // A resumed timeline can open at older history; lazy lists omit offscreen semantics.
+        compose.waitUntil(30_000) {
+            probe.sessions.lastOrNull()?.vm?.elements?.value?.any {
+                (it.element.value as? RoomMessageTimelineElementViewModel<*>)?.body == body
+            } == true
+        }
+        compose.onNodeWithTag("timeline").performScrollToNode(hasText(body))
+        compose.onNodeWithText(body).assertIsDisplayed()
+    }
 
     private suspend fun uploadAvatar(client: MatrixClient): String {
         val image = BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)
