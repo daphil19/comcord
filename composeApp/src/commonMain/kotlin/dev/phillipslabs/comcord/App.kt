@@ -346,12 +346,18 @@ internal fun ComcordAccountShell(
 ) {
     val state by store.state.collectAsState()
     var showChannels by remember { mutableStateOf(false) }
+    var showMemberList by remember { mutableStateOf(false) }
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val compact = maxWidth < 900.dp
         Row(modifier = Modifier.fillMaxSize()) {
             ServerRail(compact = compact, state = state, store = store)
             if (!compact) ChannelPanel(state, store)
             Column(Modifier.weight(1f)) {
+                if (state.selectedRoomId != null) {
+                    Button(onClick = { showMemberList = !showMemberList }) {
+                        Text(if (showMemberList) "Hide Member List" else "Show Member List")
+                    }
+                }
                 if (compact) {
                     Button(onClick = { showChannels = !showChannels }) { Text("Channels and DMs") }
                 }
@@ -367,6 +373,10 @@ internal fun ComcordAccountShell(
                         foreground = foreground,
                     )
                 }
+            }
+            val selectedRoomId = state.selectedRoomId
+            if (showMemberList && selectedRoomId != null && foreground) {
+                MemberList(messenger, state.accountId, selectedRoomId)
             }
         }
     }
