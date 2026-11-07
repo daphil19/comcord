@@ -98,7 +98,11 @@ internal fun MemberList(
         val members = remember(client, roomId, attempt) { observeMemberRoles(client, RoomId(roomId)) }
         val state by members.collectAsState(MemberListState())
         Column(
-            modifier.fillMaxHeight().width(240.dp).padding(12.dp).testTag("member-list"),
+            modifier
+                .fillMaxHeight()
+                .width(240.dp)
+                .padding(12.dp)
+                .testTag("member-list"),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Member List", style = MaterialTheme.typography.titleMedium)
