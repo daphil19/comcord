@@ -71,7 +71,7 @@ androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.r
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-gradle-versions = { id = "io.github.ben-manes.versions", version = "0.66.0" }
+gradle-versions = { id = "io.github.ben-manes.versions", version = "0.67.0" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "14.2.0" }
 # Detekt 2 supports Kotlin 2.x and AGP 9 built-in Kotlin without legacy opt-outs.
 detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }
