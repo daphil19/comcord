@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.arkivanov.essenty.lifecycle.Lifecycle
 import de.connect2x.trixnity.client.MatrixClient
 import de.connect2x.trixnity.clientserverapi.model.media.Media
-import de.connect2x.trixnity.clientserverapi.model.user.ProfileField
+import de.connect2x.trixnity.core.model.ProfileField
 import de.connect2x.trixnity.core.model.events.m.DirectEventContent
 import de.connect2x.trixnity.messenger.viewmodel.room.timeline.elements.message.RoomMessageTimelineElementViewModel
 import io.ktor.http.ContentType

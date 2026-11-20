@@ -20,12 +20,12 @@ junit = "4.13.2"
 kotlinx-coroutines = "1.11.0"
 jdk = "17"
 ktlint = "1.8.0"
-# Match trixnity-messenger 4.10.3; Ktor 3.6 is outside its published baseline.
-ktor = "3.5.2"
-decompose = "3.5.0" # https://github.com/arkivanov/Decompose/releases
+# Keep platform engines and the Ktor catalog in settings.gradle.kts aligned.
+ktor = "3.6.1"
+decompose = "3.6.2" # https://github.com/arkivanov/Decompose/releases
 copyWebpackPlugin = "14.0.0" # https://github.com/webpack-contrib/copy-webpack-plugin/releases
 terserWebpackPlugin = "5.6.1"
-# Match Trixnity 4.10.3: newer wrappers remove the IndexedDB createIndex ABI
+# Match trixnity-messenger 4.11.0: newer wrappers remove the IndexedDB createIndex ABI
 # used by its precompiled Wasm libraries (login fails with IrLinkageError).
 kotlinWrappers = "2026.6.1"
 
@@ -52,7 +52,7 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.10.3" }
+trixnity-messenger = { module = "de.connect2x.trixnity.messenger:trixnity-messenger", version = "4.11.0" }
 ktlint-compose = "io.nlopez.compose.rules:ktlint:0.6.8"
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
