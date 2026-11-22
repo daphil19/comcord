@@ -353,16 +353,21 @@ internal fun ComcordAccountShell(
             ServerRail(compact = compact, state = state, store = store)
             if (!compact) ChannelPanel(state, store)
             Column(Modifier.weight(1f)) {
-                if (state.selectedRoomId != null) {
-                    Button(
-                        onClick = { showMemberList = !showMemberList },
-                        modifier = Modifier.align(Alignment.End),
+                if (compact || state.selectedRoomId != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(if (showMemberList) "Hide Member List" else "Show Member List")
+                        if (compact) {
+                            Button(onClick = { showChannels = !showChannels }) { Text("Channels and DMs") }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (state.selectedRoomId != null) {
+                            Button(onClick = { showMemberList = !showMemberList }) {
+                                Text(if (showMemberList) "Hide Member List" else "Show Member List")
+                            }
+                        }
                     }
-                }
-                if (compact) {
-                    Button(onClick = { showChannels = !showChannels }) { Text("Channels and DMs") }
                 }
                 if (compact && showChannels) {
                     ChannelPanel(state, store, onSelect = { showChannels = false })

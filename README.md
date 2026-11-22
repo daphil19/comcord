@@ -32,6 +32,23 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - `androidApp/`: Android application entry point, manifest, and launcher resources (AGP built-in Kotlin)
 - `iosApp/`: iOS app entry point/wrapper for running the shared Compose application on Apple platforms
 
+## Agent configuration
+
+Codex and Junie share the root [AGENTS.md](AGENTS.md) instructions. Leave Junie's
+Guidelines path unset to use its default discovery, or set it to `AGENTS.md`.
+Project skills live in `.agents/skills`; `.junie/skills` contains relative symlinks
+to those same skills. Add a matching symlink when adding a project skill.
+
+Project MCP servers are configured in `.codex/config.toml` for Codex and
+`.junie/mcp/mcp.json` for Junie. Keep server names, URLs, commands, and arguments
+aligned when changing either configuration. Junie's hot-reload timeout is 180,000
+milliseconds for all requests; Codex uses separate startup and tool timeouts.
+Open the project root in Junie so `./gradlew` resolves in this checkout. Check
+connections in Junie's MCP settings (or `/mcp` in Junie CLI) after loading the project.
+
+See JetBrains' [guidelines discovery](https://junie.jetbrains.com/docs/guidelines-and-memory.html)
+and [MCP configuration](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html).
+
 ## Build notes
 
 - Web targets include JS/IR and Wasm; both share `webMain`.
