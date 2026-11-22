@@ -41,10 +41,17 @@ tasks.named("check") {
     dependsOn(tasks.withType<Detekt>())
 }
 
+val desktopMainClass = "dev.phillipslabs.comcord.MainKt"
+
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 kotlin {
     // toolchains are better than setting source/target compatibilities
-    jvm()
+    jvm {
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+        mainRun {
+            mainClass.set(desktopMainClass)
+        }
+    }
     jvmToolchain(
         libs.versions.jdk
             .get()
@@ -160,7 +167,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "dev.phillipslabs.comcord.MainKt"
+        mainClass = desktopMainClass
 
         buildTypes.release.proguard {
             isEnabled.set(false)

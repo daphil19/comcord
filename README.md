@@ -101,7 +101,8 @@ Reset to a clean state (removes DB + media + users):
 - Checks/tests (compiles required inputs): `./gradlew check`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
-- Run Desktop app: `./gradlew :composeApp:run`
+- Run Desktop app (Compose launcher): `./gradlew :composeApp:run`
+- Run Desktop app (Kotlin JVM launcher): `./gradlew :composeApp:jvmRun`
 - Compile Web (JS): `./gradlew :composeApp:compileKotlinJs`
 - Compile Web (Wasm): `./gradlew :composeApp:compileKotlinWasmJs`
 - Link and validate the Web development application (Wasm): `./gradlew :composeApp:validateWasmDevelopment`
