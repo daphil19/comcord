@@ -354,7 +354,10 @@ internal fun ComcordAccountShell(
             if (!compact) ChannelPanel(state, store)
             Column(Modifier.weight(1f)) {
                 if (state.selectedRoomId != null) {
-                    Button(onClick = { showMemberList = !showMemberList }) {
+                    Button(
+                        onClick = { showMemberList = !showMemberList },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
                         Text(if (showMemberList) "Hide Member List" else "Show Member List")
                     }
                 }

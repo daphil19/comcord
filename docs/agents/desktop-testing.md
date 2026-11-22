@@ -1,15 +1,87 @@
-# Desktop and Messenger workflow verification
+# Development verification
 
-Use this runbook for desktop/web UI checks or new Messenger workflow smoke tests.
-The [agent guide](../../AGENTS.md) defines required final verification; Gradle task
-definitions are authoritative for their options.
+Use this runbook to choose checks, verify dependency updates, and test desktop/web
+UI or Messenger workflows. Gradle task definitions are authoritative for task
+behavior and options.
 
-## Start with the smallest automated check
+## Choose verification scope
 
-Run `./gradlew verifyJvmDev` for static checks and JVM/Android host tests before
-expensive platform linking. It reuses the modules' existing checks, including
-JVM/Android typed Detekt. Shared/build changes still finish with `buildDev` as
-required by the agent guide.
+Choose the smallest scope that covers the changed behavior. The user's current
+verification limit or decision to run checks takes precedence over these defaults.
+
+| Change or requested coverage | Start with | Completion criterion |
+| --- | --- | --- |
+| Documentation or comments only | Review the diff and run `git diff --check`. | Diff and whitespace checks pass; no Gradle build needed. |
+| Comcord policy or JVM/Android host behavior | `./gradlew verifyJvmDev` | Existing static checks and relevant host tests pass. |
+| One platform's code or build configuration | The relevant test and compile/link task below. | The affected path passes; report platform/runtime coverage separately. |
+| Shared code | `verifyJvmDev`, then compilation/linking for affected targets. | Tests cover the changed policy and affected targets compile/link. Use `buildDev` when all-target coverage is needed. |
+| Dependencies or toolchain | Follow the dependency-update sequence below. | Fast checks pass before platform work; record affected targets and any runtime checks left open. |
+| Cross-platform checks and tests | `./gradlew buildDev` | Development artifacts and both modules' checks pass. |
+| Cross-platform artifacts without the test suite | `./gradlew assembleDev` | Development artifacts and linked Wasm validation pass. |
+| Production packaging | The affected production/package task. | The changed package is verified. Reserve `./gradlew build` for explicitly requested full release validation. |
+
+Broaden verification when a failure, a new change, or an uncovered affected path
+requires it. Once the selected checks pass, stop unless required coverage remains.
+Report checks that could not run rather than treating partial coverage as complete.
+
+### Dependency-update sequence
+
+1. Check published metadata and release requirements for the selected version.
+   Distinguish dependencies Comcord uses directly from SDK internals supplied
+   transitively. Record the reason for deliberate version overrides.
+2. Run `./gradlew verifyJvmDev` before expensive platform linking. This already
+   runs ktlint, Detekt, and JVM/Android host tests and compiles JVM test sources,
+   including smoke-test sources. Fix failures here before broadening the build.
+3. Compile/link the affected platforms. For Wasm, run
+   `./gradlew :composeApp:validateWasmDevelopment` to check the linked application;
+   `compileKotlinWasmJs` alone only checks Kotlin compilation. Refresh JS/Wasm
+   Yarn locks when the web dependency graph changes, then repeat the failed check.
+   For dependencies used on every target, cover every target with the platform
+   tasks below or `buildDev`, subject to the user's verification limit.
+4. For Messenger or web runtime dependency changes, verify startup and relevant
+   login/sync behavior on the affected app targets. Use the documented local
+   Homeserver (`http://localhost:8008`, `alice` / `alicepass`) for desktop/Wasm
+   checks. Existing browser tests use a separate test executable; they do not
+   establish that the actual application starts. Record binary validation,
+   browser startup, login/sync, and IDE indexing as separate evidence.
+
+CI already runs static checks, host tests, web bundling, browser tests, and Matrix
+workflows. Use those existing checks before adding another rule or task. The
+current Wasm binary validator does not run the application. An automated check
+of actual application startup remains a separate CI improvement; assess its
+placement and cost under [the build review policy](build-review.md).
+
+### User handoff
+
+When the user says they will run verification, stop verification processes started
+for this task and hand off. List the exact remaining commands, completed results,
+and unresolved failures. Leave the user's existing dev servers and apps running.
+Resume verification when the user asks or provides a failure to investigate.
+
+### Platform commands and prerequisites
+
+| Purpose | Command |
+| --- | --- |
+| Desktop compile/package or run | `./gradlew :composeApp:jvmJar` or `./gradlew :composeApp:run` |
+| Android debug APK | `./gradlew :androidApp:assembleDebug` |
+| JS compilation | `./gradlew :composeApp:compileKotlinJs` |
+| Wasm application link and validation | `./gradlew :composeApp:validateWasmDevelopment` |
+| Web development server | `./gradlew :composeApp:jsBrowserDevelopmentRun` or `./gradlew :composeApp:wasmJsBrowserDevelopmentRun` |
+| Web lock refresh | `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock` |
+| iOS simulator framework | `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64` |
+| Shared/store JVM tests without Docker | `./gradlew :composeApp:jvmTest` |
+| Full platform tests | `./gradlew :composeApp:allTests` (Matrix smoke tests remain separate) |
+| Local Homeserver | `docker compose -f docker/matrix-mock/docker-compose.yml up -d` |
+
+`assembleDev` builds the desktop JAR, Android debug APK, JS code, the linked and
+validated Wasm development application, and the Apple Silicon iOS simulator
+debug framework. `buildDev` adds both modules' `check` tasks. These require macOS,
+Xcode, and the Android SDK; browser/iOS tests may also need a browser/simulator.
+They avoid production web bundling and iOS release linking, do not launch the
+application, and do not compile the Swift iOS wrapper. `./gradlew check` runs
+checks/tests and their required compilation/linking, including Wasm validation.
+
+## Matrix workflow checks
 
 For real SDK workflows, run Gradle directly from the target checkout:
 

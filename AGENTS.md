@@ -14,49 +14,15 @@ AGP 9 uses the Android KMP library plugin in `composeApp` and built-in Kotlin in
 
 ## Verification
 
-- Fast static checks and JVM/Android host tests: `./gradlew verifyJvmDev`
-- Everyday checks, tests, and cross-platform compilation: `./gradlew buildDev` (macOS, Xcode, Android SDK)
-- Cross-platform compilation only: `./gradlew assembleDev` (same requirements)
-- Checks/tests, including compilation of their required inputs: `./gradlew check`
-- Desktop compile/package: `./gradlew :composeApp:jvmJar`
-- Desktop run: `./gradlew :composeApp:run`
-- Android: `./gradlew :androidApp:assembleDebug`
-- Web compile: `./gradlew :composeApp:compileKotlinJs :composeApp:compileKotlinWasmJs`
-- Web run: `./gradlew :composeApp:jsBrowserDevelopmentRun` or `./gradlew :composeApp:wasmJsBrowserDevelopmentRun`
-- Web lock refresh: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
-- iOS: `./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64`
-- Fast shared/store tests on JVM (no Docker): `./gradlew :composeApp:jvmTest`
-- Matrix workflow smoke tests: `./gradlew :composeApp:matrixSmokeTest -PmatrixWorkflowsOnly=true` (Docker required; isolated Synapse runs)
-- Full platform tests: `./gradlew :composeApp:allTests` (run `:composeApp:matrixSmokeTest` separately for Matrix integration)
-- Local homeserver: `docker compose -f docker/matrix-mock/docker-compose.yml up -d`
-
-For desktop/web UI verification and Messenger workflow test setup, read the
-[testing runbook](docs/agents/desktop-testing.md).
-
-Choose the narrowest verification that covers the change: relevant tests/checks,
-affected-platform compilation, or both when needed. For
-documentation or comment-only changes, review the diff and run `git diff --check`;
-no Gradle build is required. Broaden verification only when the change warrants it.
-
-For shared code or toolchain changes, use `./gradlew buildDev`. It combines
-`assembleDev` with both modules' `check` tasks (including configured tests).
-`assembleDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
-and the Apple Silicon iOS simulator debug framework. Both avoid production web
-bundling and iOS release linking and require macOS/Xcode and the Android SDK.
-Browser and iOS tests may also need a browser and an available iOS simulator.
-These tasks do not launch the app or compile the Swift iOS wrapper. Use
-`./gradlew check` for checks/tests alone.
-
-Do not run `./gradlew build` for routine agent verification. It also performs
-production web optimization and iOS release linking, which can be very expensive.
-Reserve the full build for explicitly requested release validation. If changing
-production bundling or packaging, run only the relevant production/package tasks.
-
-For toolchain changes, compile every target and verify desktop and Wasm login/sync
-with the local homeserver (`http://localhost:8008`, `alice` / `alicepass`). Report
-checks that could not run; compilation alone does not verify login or IDE indexing.
+Before choosing checks, updating dependencies/tooling, or verifying desktop/web
+UI and Messenger workflows, read the [testing runbook](docs/agents/desktop-testing.md).
+It owns the verification decision table, commands, and user-handoff procedure.
+Use the smallest scope that covers the change and the user's current request.
 
 ## Scope and style
+
+When reviewing changes to build tasks or default verification commands, read
+[the build review policy](docs/agents/build-review.md).
 
 Work on one GitHub ticket at a time; read it with `gh issue view`. Keep dependency
 and tooling work separate from features. Use Kotlin with four-space indentation,
