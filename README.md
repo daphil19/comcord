@@ -40,6 +40,7 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - Gradle 9.7.0 is Kotlin 2.4.21's documented compatibility ceiling; Gradle 9.8.x is held back.
 - Ktor 3.5.2 matches Trixnity Messenger 4.10.3; coroutines 1.11.0 and Decompose 3.5.0 match its published dependencies.
 - Kotlin wrappers stay on Trixnity's 2026.6.1 baseline: newer wrappers compile but fail Wasm login with an IndexedDB `createIndex` linkage error.
+- Incremental Wasm compilation is temporarily disabled to avoid invalid linked binaries. Restoring it is a follow-up goal; see the [re-enable criteria](docs/agents/desktop-testing.md#wasm-linking-and-incremental-support). Development builds validate the linked application Wasm with Kotlin's managed Node runtime.
 - `terser-webpack-plugin` is an explicit development dependency because `composeApp/webpack.config.d/trixnity.js` imports it for custom production minification. The webpack upgrade stopped supplying it transitively under that name. It can be removed together with the custom minifier configuration if webpack's default minification produces working JS/Wasm bundles with acceptable build times; the current tuning disables expensive compression passes.
 - Compose Material 3 remains on 1.9.0, the latest stable artifact in its own release line.
 - Java stays on 17; Android minSdk 28 and targetSdk 36 retain the current device support and runtime behavior. Only compileSdk advances to 37 for dependency compatibility.
@@ -86,6 +87,7 @@ Reset to a clean state (removes DB + media + users):
 - Run Desktop app: `./gradlew :composeApp:run`
 - Compile Web (JS): `./gradlew :composeApp:compileKotlinJs`
 - Compile Web (Wasm): `./gradlew :composeApp:compileKotlinWasmJs`
+- Link and validate the Web development application (Wasm): `./gradlew :composeApp:validateWasmDevelopment`
 - Run Web (JS): `./gradlew :composeApp:jsBrowserDevelopmentRun`
 - Run Web (Wasm): `./gradlew :composeApp:wasmJsBrowserDevelopmentRun`
 - Refresh web locks after dependency changes: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
@@ -99,7 +101,7 @@ with Xcode and the Android SDK:
 ./gradlew buildDev
 ```
 
-`assembleDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
+`assembleDev` builds the desktop JAR, Android debug APK, JS code, the linked and validated Wasm development application,
 and the Apple Silicon iOS simulator debug framework. `buildDev` combines
 `assembleDev` with both modules' `check` tasks (including their configured tests).
 Both skip production web bundling and iOS release linking. Use `./gradlew check`

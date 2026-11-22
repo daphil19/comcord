@@ -59,6 +59,33 @@ with the headless fixture recreates the dispatcher stalls seen during #24.
 
 ## Choose an interactive target
 
+### Wasm linking and incremental support
+
+Incremental Wasm support is desirable and should be restored when it is reliable.
+For now, `gradle.properties` sets `kotlin.incremental.wasm=false` for all Wasm
+binaries. With Kotlin 2.4.21 and Messenger 4.11.0, incremental development linking
+produced a binary rejected by both Brave and Node with `struct.set` reference-type
+mismatches in Trixnity's device-key code. Non-incremental linking
+produced a valid binary and restored the existing browser Account to `Synced`.
+This is a compiler/linker workaround, not a requirement to keep Messenger on an
+older version. The earlier test-only workaround did not protect the application.
+
+`:composeApp:validateWasmDevelopment` links the actual development application
+and compiles its Wasm with Kotlin's managed Node runtime without running the app.
+It runs with `check`, `assembleDev`/`buildDev`, CI, and development-server startup.
+Compilation of Kotlin to a KLIB alone does not detect invalid linked Wasm;
+validation does not detect runtime ABI, storage, or login/sync problems.
+
+To evaluate incremental support with a future stable Kotlin compiler, temporarily
+override the setting with `-Pkotlin.incremental.wasm=true`. Verify a fresh app
+and test link, then repeat after a source edit and a dependency update without
+cleaning the linker outputs. Require application validation, Wasm browser tests,
+and browser startup/login/sync to pass in both cases. Restore the default only
+after those checks pass; keep binary validation enabled to catch regressions.
+The override uses Kotlin's [documented Wasm incremental compilation setting](https://kotlinlang.org/docs/wasm-configuration.html#kotlin-wasm-incremental-compilation).
+
+### Interactive verification
+
 1. Check the Compose hot-reload MCP connection first. Confirm the connected app
    belongs to the checkout and revision being tested before using reload or
    interaction tools. If useful hot reload is disconnected, ask the user to start
