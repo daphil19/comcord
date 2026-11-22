@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "klibs": {
+      "url": "https://api.klibs.io/mcp"
+    },
+    "compose-hot-reload": {
+      "command": "./gradlew",
+      "args": [
+        "--no-daemon",
+        "--quiet",
+        "--console=plain",
+        ":composeApp:hotMcpServerJvm"
+      ],
+      "timeout": 180000
+    }
+  }
+}
