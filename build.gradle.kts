@@ -44,12 +44,12 @@ tasks.named("dependencyUpdates", DependencyUpdatesTask::class.java).configure {
 val assembleDev =
     tasks.register("assembleDev") {
         group = "build"
-        description = "Compiles desktop, Android debug, JS, Wasm, and the iOS simulator debug framework."
+        description = "Compiles development targets and validates the linked Wasm application."
         dependsOn(
             ":composeApp:jvmJar",
             ":androidApp:assembleDebug",
             ":composeApp:compileKotlinJs",
-            ":composeApp:compileKotlinWasmJs",
+            ":composeApp:validateWasmDevelopment",
             ":composeApp:linkDebugFrameworkIosSimulatorArm64",
         )
     }

@@ -2,6 +2,7 @@ import dev.detekt.gradle.Detekt
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsExec
 import java.time.Duration
 
 plugins {
@@ -40,10 +41,17 @@ tasks.named("check") {
     dependsOn(tasks.withType<Detekt>())
 }
 
+val desktopMainClass = "dev.phillipslabs.comcord.MainKt"
+
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 kotlin {
     // toolchains are better than setting source/target compatibilities
-    jvm()
+    jvm {
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+        mainRun {
+            mainClass.set(desktopMainClass)
+        }
+    }
     jvmToolchain(
         libs.versions.jdk
             .get()
@@ -90,6 +98,26 @@ kotlin {
     wasmJs {
         browser()
         binaries.executable()
+
+        val wasmLink = tasks.named<KotlinJsIrLink>("compileDevelopmentExecutableKotlinWasmJs")
+        val wasmDirectory = wasmLink.flatMap { it.destinationDirectory }
+        val validateWasmDevelopment =
+            NodeJsExec.register(compilations.getByName("main"), "validateWasmDevelopment") {
+                group = "verification"
+                description = "Validates the linked application Wasm binary with the Kotlin-managed Node runtime."
+                sourceMapStackTraces = false
+                inputFileProperty.set(rootProject.layout.projectDirectory.file("scripts/validate-wasm.mjs"))
+                inputs.dir(wasmDirectory).withPathSensitivity(PathSensitivity.RELATIVE)
+                doFirst {
+                    setArgs(listOf(wasmDirectory.get().asFile.absolutePath))
+                }
+            }
+        tasks.named("check") {
+            dependsOn(validateWasmDevelopment)
+        }
+        tasks.named("wasmJsBrowserDevelopmentRun") {
+            dependsOn(validateWasmDevelopment)
+        }
     }
 
     sourceSets {
@@ -139,7 +167,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "dev.phillipslabs.comcord.MainKt"
+        mainClass = desktopMainClass
 
         buildTypes.release.proguard {
             isEnabled.set(false)
@@ -176,12 +204,6 @@ tasks.register<Test>("matrixSmokeTest") {
     }
     outputs.upToDateWhen { false }
     timeout.set(Duration.ofMinutes(10))
-}
-
-// Kotlin 2.4.21's incremental Wasm test linker emits invalid GC types in the
-// Trixnity/test dependency graph, preventing Karma from discovering any tests.
-tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasmJs") {
-    incrementalWasm = false
 }
 
 // Experimental #23 launchers are opt-in and never enter ordinary production builds.

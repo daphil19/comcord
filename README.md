@@ -32,6 +32,23 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - `androidApp/`: Android application entry point, manifest, and launcher resources (AGP built-in Kotlin)
 - `iosApp/`: iOS app entry point/wrapper for running the shared Compose application on Apple platforms
 
+## Agent configuration
+
+Codex and Junie share the root [AGENTS.md](AGENTS.md) instructions. Leave Junie's
+Guidelines path unset to use its default discovery, or set it to `AGENTS.md`.
+Project skills live in `.agents/skills`; `.junie/skills` contains relative symlinks
+to those same skills. Add a matching symlink when adding a project skill.
+
+Project MCP servers are configured in `.codex/config.toml` for Codex and
+`.junie/mcp/mcp.json` for Junie. Keep server names, URLs, commands, and arguments
+aligned when changing either configuration. Junie's hot-reload timeout is 180,000
+milliseconds for all requests; Codex uses separate startup and tool timeouts.
+Open the project root in Junie so `./gradlew` resolves in this checkout. Check
+connections in Junie's MCP settings (or `/mcp` in Junie CLI) after loading the project.
+
+See JetBrains' [guidelines discovery](https://junie.jetbrains.com/docs/guidelines-and-memory.html)
+and [MCP configuration](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html).
+
 ## Build notes
 
 - Web targets include JS/IR and Wasm; both share `webMain`.
@@ -40,6 +57,7 @@ The current phase is focused on a functional login/sync/rooms vertical slice:
 - Gradle 9.7.0 is Kotlin 2.4.21's documented compatibility ceiling; Gradle 9.8.x is held back.
 - Ktor 3.5.2 matches Trixnity Messenger 4.10.3; coroutines 1.11.0 and Decompose 3.5.0 match its published dependencies.
 - Kotlin wrappers stay on Trixnity's 2026.6.1 baseline: newer wrappers compile but fail Wasm login with an IndexedDB `createIndex` linkage error.
+- Incremental Wasm compilation is temporarily disabled to avoid invalid linked binaries. Restoring it is a follow-up goal; see the [re-enable criteria](docs/agents/desktop-testing.md#wasm-linking-and-incremental-support). Development builds validate the linked application Wasm with Kotlin's managed Node runtime.
 - `terser-webpack-plugin` is an explicit development dependency because `composeApp/webpack.config.d/trixnity.js` imports it for custom production minification. The webpack upgrade stopped supplying it transitively under that name. It can be removed together with the custom minifier configuration if webpack's default minification produces working JS/Wasm bundles with acceptable build times; the current tuning disables expensive compression passes.
 - Compose Material 3 remains on 1.9.0, the latest stable artifact in its own release line.
 - Java stays on 17; Android minSdk 28 and targetSdk 36 retain the current device support and runtime behavior. Only compileSdk advances to 37 for dependency compatibility.
@@ -83,9 +101,11 @@ Reset to a clean state (removes DB + media + users):
 - Checks/tests (compiles required inputs): `./gradlew check`
 - Build Android debug app: `./gradlew :androidApp:assembleDebug`
 - Build Desktop jar: `./gradlew :composeApp:jvmJar`
-- Run Desktop app: `./gradlew :composeApp:run`
+- Run Desktop app (Compose launcher): `./gradlew :composeApp:run`
+- Run Desktop app (Kotlin JVM launcher): `./gradlew :composeApp:jvmRun`
 - Compile Web (JS): `./gradlew :composeApp:compileKotlinJs`
 - Compile Web (Wasm): `./gradlew :composeApp:compileKotlinWasmJs`
+- Link and validate the Web development application (Wasm): `./gradlew :composeApp:validateWasmDevelopment`
 - Run Web (JS): `./gradlew :composeApp:jsBrowserDevelopmentRun`
 - Run Web (Wasm): `./gradlew :composeApp:wasmJsBrowserDevelopmentRun`
 - Refresh web locks after dependency changes: `./gradlew kotlinUpgradeYarnLock kotlinWasmUpgradeYarnLock`
@@ -99,7 +119,7 @@ with Xcode and the Android SDK:
 ./gradlew buildDev
 ```
 
-`assembleDev` builds the desktop JAR, Android debug APK, JS and Wasm Kotlin code,
+`assembleDev` builds the desktop JAR, Android debug APK, JS code, the linked and validated Wasm development application,
 and the Apple Silicon iOS simulator debug framework. `buildDev` combines
 `assembleDev` with both modules' `check` tasks (including their configured tests).
 Both skip production web bundling and iOS release linking. Use `./gradlew check`
