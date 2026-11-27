@@ -19,6 +19,10 @@ UI and Messenger workflows, read the [testing runbook](docs/agents/desktop-testi
 It owns the verification decision table, commands, and user-handoff procedure.
 Use the smallest scope that covers the change and the user's current request.
 
+When diagnosing a failure, distinguish evidence from the failing environment,
+local reproductions, and remaining hypotheses before adding a permanent
+workaround. Report a fix as verified only for the environments actually checked.
+
 ## Scope and style
 
 When reviewing changes to build tasks or default verification commands, read
@@ -28,6 +32,13 @@ Work on one GitHub ticket at a time; read it with `gh issue view`. Keep dependen
 and tooling work separate from features. Use Kotlin with four-space indentation,
 trailing commas, descriptive names, and packages under `dev.phillipslabs.comcord`.
 Do not copy source, assets, or exact visual designs from other chat clients.
+
+For multi-ticket requests, bring each completed ticket through relevant checks
+and review into a reviewable commit or PR update as it finishes. Publish within
+the user's authorization. Before starting another ticket, assess the remaining
+time and active work; when time is tight, prioritize finishing and delivering
+active tickets. Keep unfinished work separate and record its branch and blocker
+at handoff. Apply this delivery cadence when using `implement-spec` as well.
 
 `:composeApp:assembleDebug` remains a forwarding task for compatibility. Android
 release tasks and APK/AAB outputs belong to `androidApp`.

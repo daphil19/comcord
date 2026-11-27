@@ -81,6 +81,26 @@ They avoid production web bundling and iOS release linking, do not launch the
 application, and do not compile the Swift iOS wrapper. `./gradlew check` runs
 checks/tests and their required compilation/linking, including Wasm validation.
 
+## Recover from Yarn lock mismatches
+
+1. Run the affected refresh task: `./gradlew kotlinUpgradeYarnLock` for JS or
+   `./gradlew kotlinWasmUpgradeYarnLock` for Wasm. Run both when both locks fail.
+2. If refresh leaves the mismatch unresolved, save a copy of the affected
+   committed lock (`kotlin-js-store/yarn.lock` or `kotlin-js-store/wasm/yarn.lock`),
+   remove that lock and its corresponding generated workspace (`build/js` or
+   `build/wasm`), then rerun the refresh task. These workspaces contain generated
+   files; stop any web dev server using the affected workspace first.
+3. Review the regenerated diff before accepting it. Regeneration can resolve new
+   versions within dependency ranges; distinguish version, URL, and integrity
+   changes from metadata-only changes.
+4. Run `./gradlew kotlinStoreYarnLock kotlinWasmStoreYarnLock --rerun-tasks` to
+   validate both locks, then repeat the originally failing check. Report local
+   validation and the CI result separately.
+5. If the mismatch persists, compare the failing environment's generated lock
+   with the committed one and investigate tool versions and caches. Gradle's
+   `clean` and `--no-build-cache` do not clear Yarn's global package cache. Try
+   cache isolation as a diagnostic before proposing a permanent cache policy.
+
 ## Matrix workflow checks
 
 For real SDK workflows, run Gradle directly from the target checkout:
